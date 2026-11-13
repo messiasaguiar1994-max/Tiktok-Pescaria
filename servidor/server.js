@@ -12,7 +12,7 @@ const CHAVE_EULER = process.env.EULER_API_KEY || ''; // opcional: chave do euler
 
 const nz = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const limpaUsuario = u => String(u || '').trim().replace(/^@/, '').replace(/[^a-zA-Z0-9._]/g, '').toLowerCase();
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' };
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 const json = (res, o, st = 200) => { res.writeHead(st, { 'Content-Type': 'application/json', ...CORS }); res.end(JSON.stringify(o)); };
 
 // ---------- leitura dos eventos (formato novo 2.x e antigo da biblioteca) ----------
@@ -91,6 +91,7 @@ async function conectar(s) {
       s.likes[p.id] = (s.likes[p.id] || 0) + (d.likeCount || d.count || 1);
       if (s.likes[p.id] >= 50) { const q = Math.floor(s.likes[p.id] / 50); s.likes[p.id] %= 50; s.emit({ tipo: 'curtidas', ...p, qtd: Math.min(q, 5) }); }
     });
+    for (const n of new Set([E.MEMBER, 'member'])) c.on(n, d => { const p = pessoa(d); if (p.id) s.emit({ tipo: 'chegou', ...p }); });
     c.on(K.DISCONNECTED || 'disconnected', () => { if (!s.ativa) return; s.status('reconectando', 'A live caiu ou terminou. Tentando de novo...'); s.tmr = setTimeout(() => conectar(s), 8000); });
     c.on(K.ERROR || 'error', e => console.log('[' + s.usuario + '] aviso:', (e && e.message) || e));
     s.status('conectando', 'Procurando a live de @' + s.usuario + '...');
@@ -117,12 +118,70 @@ async function foto(res, u) {
   } catch (e) { res.writeHead(404, CORS); res.end(); }
 }
 
+
+// ---------- apresentador com IA (OpenAI) ----------
+// A chave fica so aqui no servidor (variavel OPENAI_API_KEY no Render), nunca dentro do app.
+const OPENAI = process.env.OPENAI_API_KEY || '';
+const MODELOS_TEXTO = [process.env.MODELO_TEXTO, 'gpt-4.1-mini', 'gpt-4o-mini'].filter(Boolean);
+const MODELO_VOZ = process.env.MODELO_VOZ || 'gpt-4o-mini-tts';
+const VOZ = process.env.VOZ || 'ash';
+const JEITO_VOZ = process.env.JEITO_VOZ || 'Fale em portugues do Brasil, como um apresentador de TV animado e engracado, com energia, ritmo rapido e sotaque brasileiro.';
+const PERSONA = `Voce e o "Capitao Pescador", apresentador de uma live de pescaria no TikTok. Voce esta num barquinho dando voltas no lago.
+Como o jogo funciona: quem comenta "eu homem" ou "eu mulher" senta num banco na beira do lago. Cada 50 curtidas pesca um peixe pequeno. Presentes pescam peixes melhores: Rosa = peixe da rosa, Team Bracelet = peixe dourado, Finger Heart = peixe robo, Tiny Diny = baleia, Capybara = peixe misterioso surpresa. Quem pesca mais fica em primeiro no ranking.
+Regras da sua fala:
+- Portugues do Brasil, bem informal e animado, estilo narrador de futebol/apresentador de auditorio. Pode usar girias leves.
+- No maximo 2 frases curtas (ate 28 palavras). Nada de emojis, hashtags, listas ou aspas.
+- Chame as pessoas pelo nome que aparece. Se o nome for estranho ou cheio de simbolos, use so a parte legivel.
+- Provoque a competicao de forma divertida (ex.: "fulano esta em primeiro, voces vao deixar?"), mas nunca exija presentes, nunca prometa premios, dinheiro ou vantagens fora do jogo.
+- Elogie quem pesca e comente o peixe de um jeito engracado.
+- Se um comentario for ofensivo, sexual, preconceituoso, politico ou pedir algo perigoso, nao repita: mude de assunto com bom humor.
+- Nunca diga que e uma IA, nunca leia links nem numeros de telefone.`;
+const ultimoPorSala = new Map();
+async function openai(caminho, corpo) {
+  const r = await fetch((process.env.OPENAI_URL || 'https://api.openai.com/v1/') + caminho, { method: 'POST', headers: { Authorization: 'Bearer ' + OPENAI, 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
+  if (!r.ok) { const t = await r.text(); const e = new Error('OpenAI ' + r.status + ': ' + t.slice(0, 200)); e.status = r.status; throw e; }
+  return r;
+}
+async function gerarTexto(evento, contexto) {
+  let erro;
+  for (const modelo of MODELOS_TEXTO) {
+    try {
+      const r = await openai('chat/completions', { model: modelo, max_tokens: 90, temperature: 0.95, messages: [
+        { role: 'system', content: PERSONA },
+        { role: 'user', content: 'Situacao da live agora: ' + contexto + '\nO que aconteceu: ' + evento + '\nResponda so com a sua fala.' }] });
+      const j = await r.json();
+      return String(j.choices[0].message.content || '').replace(/["“”*#]/g, '').trim().slice(0, 260);
+    } catch (e) { erro = e; if (e.status === 401 || e.status === 429) break; }
+  }
+  throw erro;
+}
+async function gerarVoz(texto) {
+  const r = await openai('audio/speech', { model: MODELO_VOZ, voice: VOZ, input: texto, instructions: JEITO_VOZ, response_format: 'mp3' });
+  return Buffer.from(await r.arrayBuffer()).toString('base64');
+}
+function lerCorpo(req) { return new Promise((ok, er) => { let b = ''; req.on('data', c => { b += c; if (b.length > 8000) req.destroy(); }); req.on('end', () => { try { ok(JSON.parse(b || '{}')); } catch (e) { er(e); } }); req.on('error', er); }); }
+async function apresentador(req, res) {
+  let q; try { q = await lerCorpo(req); } catch (e) { return json(res, { erro: 'pedido invalido' }, 400); }
+  if (!OPENAI) return json(res, { erro: 'sem_chave' }, 503);
+  const sala = limpaUsuario(q.usuario) || 'teste', agora = Date.now();
+  if (agora - (ultimoPorSala.get(sala) || 0) < 3500) return json(res, { erro: 'devagar' }, 429); // controla o gasto
+  ultimoPorSala.set(sala, agora);
+  const evento = String(q.evento || '').slice(0, 400), contexto = String(q.contexto || '').slice(0, 600);
+  try {
+    const texto = await gerarTexto(evento, contexto);
+    let audio = '';
+    if (q.voz !== false) { try { audio = await gerarVoz(texto); } catch (e) { console.log('[voz] falhou:', e.message); } }
+    return json(res, { texto, audio });
+  } catch (e) { console.log('[apresentador] falhou:', e.message); return json(res, { erro: e.status === 401 ? 'chave_invalida' : e.status === 429 ? 'sem_credito' : 'falhou' }, 502); }
+}
+
 // ---------- rotas ----------
 http.createServer((req, res) => {
   let u; try { u = new URL(req.url, 'http://x'); } catch (e) { res.writeHead(400); return res.end(); }
   const r = u.pathname;
   if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
-  if (r === '/' || r === '/status') return json(res, { ok: true, salas: [...salas.keys()].length });
+  if (r === '/' || r === '/status') return json(res, { ok: true, salas: [...salas.keys()].length, ia: !!OPENAI });
+  if (r === '/apresentador' && req.method === 'POST') return apresentador(req, res);
   if (r === '/foto') return foto(res, u.searchParams.get('u') || '');
   if (r === '/eventos') {
     const usuario = limpaUsuario(u.searchParams.get('usuario'));

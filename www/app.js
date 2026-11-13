@@ -48,6 +48,8 @@
       <label for="srv">Endereço do servidor</label>
       <input id="srv" placeholder="https://seu-servidor.onrender.com" autocomplete="off" autocapitalize="off" spellcheck="false">
       <div class="lin"><button id="salva">Salvar e testar</button></div>
+      <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="apr" style="width:22px;height:22px"> Apresentador no barco (fala com o chat)</label>
+      <div class="dica" id="aprst"></div>
       <div class="dica">Durante o jogo, aperte o botão <b>Voltar</b> do celular para voltar a esta tela.</div>
     </details>
     <details class="cx"><summary>🧪 Testar sem live</summary>
@@ -60,6 +62,14 @@
   const $m = id => document.getElementById(id);
   $m('usu').value = guarda.ler('usuario', '') ? '@' + guarda.ler('usuario', '') : '';
   $m('srv').value = window.SERVIDOR;
+  $m('apr').checked = guarda.ler('apresentador', '1') !== '0';
+  $m('apr').onchange = () => guarda.salvar('apresentador', $m('apr').checked ? '1' : '0');
+  window.apresentadorAviso = e => {
+    const msg = { sem_chave: 'A IA ainda não está ligada no servidor (falta a chave da OpenAI no Render). Ele usa falas prontas e a voz do celular.',
+      chave_invalida: 'A chave da OpenAI no Render está errada. Ele usa falas prontas por enquanto.',
+      sem_credito: 'A OpenAI recusou por falta de crédito ou limite. Ele usa falas prontas por enquanto.' }[e] || '';
+    $m('aprst').textContent = msg; if (msg) log('Apresentador: ' + msg);
+  };
 
   const linhas = [];
   const log = t => { linhas.unshift(new Date().toLocaleTimeString().slice(0, 5) + '  ' + t); linhas.length = Math.min(linhas.length, 30); $m('log').textContent = linhas.join('\n'); };
@@ -74,7 +84,7 @@
       try {
         const c = new AbortController(), t = setTimeout(() => c.abort(), 15000);
         const r = await fetch(window.SERVIDOR + '/status', { signal: c.signal, cache: 'no-store' }); clearTimeout(t);
-        const j = await r.json(); if (j.ok) { p.className = 'pill ok'; p.textContent = 'servidor ok'; return true; }
+        const j = await r.json(); if (j.ok) { p.className = 'pill ok'; p.textContent = 'servidor ok'; $m('aprst').textContent = j.ia ? 'IA do apresentador: ligada ✔' : 'IA do apresentador: desligada (falta a chave da OpenAI no Render)'; window.apresentadorIA = j.ia ? undefined : false; return true; }
       } catch (e) {}
       await new Promise(r => setTimeout(r, 3000));
     }
@@ -103,7 +113,7 @@
         if (d.msg) log(d.msg);
         return;
       }
-      if (d.tipo === 'comentario') { log(d.nome + ': ' + d.texto); return; }
+      if (d.tipo === 'comentario' || d.tipo === 'chegou') { if (d.tipo === 'comentario') log(d.nome + ': ' + d.texto); try { window.apresentadorEvento && apresentadorEvento(d); } catch (e) {} return; }
       if (JOGO[d.tipo]) {
         log(d.tipo === 'entrar' ? d.nome + ' sentou' : d.tipo === 'presente' ? d.nome + ' mandou presente (nível ' + d.nivel + ')' : d.nome + ' +50 curtidas');
         try { aoEvento(d); } catch (e) { console.error(e); }

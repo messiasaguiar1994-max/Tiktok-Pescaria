@@ -88,7 +88,7 @@ const lb=label(name);g.add(rod,lb);const gs=gx||$('sx').value||(R()<.5?'h':'m'),
 if(ch){const m=T.SkeletonUtils.clone(ch.o);let fy=1;if(ch.skin){const r=sit(m);fy=r.f;arm=r.ar;m.position.set(0,.08-r.hip,.12)}else m.position.set(0,.08-.95,.12);m.rotation.y=fy>0?Math.PI:0;g.add(m)}else g.add(body,head,hat,th);g.position.set(seat.x,.55,seat.z);g.rotation.y=seat.ry;g.scale.setScalar(.01);sc.add(P.length<20?sh(g):g);
 const bob=new T.Mesh(new T.SphereGeometry(.1,10,8),M(0xe23a2e));const dx=seat.x-LC[0],dz=seat.z-LC[1],dl=Math.hypot(dx,dz),br=16+R()*3;bob.position.set(LC[0]+dx/dl*br,.08,LC[1]+dz/dl*br);sc.add(bob);
 const lg=new T.BufferGeometry().setFromPoints([new T.Vector3(),new T.Vector3()]),line=new T.Line(lg,new T.LineBasicMaterial({color:0xffffff}));line.frustumCulled=false;sc.add(line);
-const p={name,id:id||name,g,rod,bob,bt:bob.position.clone(),line,lb,mx,ar:arm,st:1,t0:clk.elapsedTime,seat,fx:-Math.sin(seat.ry),fz:-Math.cos(seat.ry),pts:0,inv:{},rare:0,seed:R()*6};seat.p=p;P.push(p);flash(name+' sentou no banco!',1800);renderRank();if(foto)setPhoto(p,(window.SERVIDOR||'')+'/foto?u='+encodeURIComponent(foto));return p}
+const p={name,id:id||name,g,rod,bob,bt:bob.position.clone(),line,lb,mx,ar:arm,st:1,t0:clk.elapsedTime,seat,fx:-Math.sin(seat.ry),fz:-Math.cos(seat.ry),pts:0,inv:{},rare:0,seed:R()*6};seat.p=p;P.push(p);flash(name+' sentou no banco!',1800);renderRank();try{window.onSentou&&onSentou(p)}catch(x){}if(foto)setPhoto(p,(window.SERVIDOR||'')+'/foto?u='+encodeURIComponent(foto));return p}
 const who=()=>P.find(p=>p.name===$('nm').value.trim())||P[P.length-1];
 // painéis
 let bt;function flash(m,ms){const b=$('banner');b.textContent=m;b.style.opacity=1;clearTimeout(bt);bt=setTimeout(()=>b.style.opacity=0,ms)}
@@ -213,7 +213,7 @@ function pickChar(g){const c=MD.chars;if(!c.length)return null;let l=c.filter(x=
 function newTrees(){TR.splice(0).forEach(t=>{const n=T.SkeletonUtils.clone(MD.tree);n.position.copy(t.position);n.scale.setScalar(.8+R()*.8);n.userData.s=t.userData.s;sc.remove(t);sc.add(sh(n));TR.push(n)})}
 $('mf').onchange=async e=>{const fs=[...e.target.files];let n=0;
 for(const f of fs){flash(`Carregando modelos ${++n}/${fs.length}…`,90000);const nm=nz(f.name);
-try{const g=await new Promise((ok,er)=>f.arrayBuffer().then(b=>GL.parse(b,'',ok,er)));let sk=false;g.scene.traverse(o=>{if(o.isSkinnedMesh)sk=true});
+try{const g=await new Promise((ok,er)=>f.arrayBuffer().then(b=>GL.parse(b,'',ok,er)));if(nm.includes('apresentador')){window.onModeloApresentador&&onModeloApresentador(g);continue}let sk=false;g.scene.traverse(o=>{if(o.isSkinnedMesh)sk=true});
 if(nm.includes('pescador')){const ky=nm.replace(/[_\s]+/g,' ').replace('personagem pescador ','').replace('.glb','').trim(),B=BX[ky];if(B&&!sk)seatify(g.scene,B,1,ky==='mulher 04');{let tn0=0;g.scene.traverse(o=>{if(o.isMesh)tn0+=(o.geometry.index?o.geometry.index.count:o.geometry.attributes.position.count)/3});MD.chars.push({o:prep(g.scene,1.9,1,B),an:[],skin:sk,u:0,g:ky.startsWith('mulher')?'m':'h',cap:tn0>1.5e6?1:tn0>3e5?3:tn0>1e5?12:999})}}
 else if(nm.includes('arvore'))MD.tree=prep(g.scene,4.5,1,BX.arvore);
 else if(nm.includes('grama')){grass(g.scene)}else if(nm.includes('agua')){water(g)}
@@ -244,7 +244,7 @@ if(cur){const p=cur.p,e=t-cur.t0,pos=p.g.position;if(cur.f.userData.mx)cur.f.use
 want.set(pos.x+p.fx*6.4-p.fz*1.0,2.9,pos.z+p.fz*6.4+p.fx*1.0);lt.set(pos.x+p.fx*.3,2.1,pos.z+p.fz*.3);
 if(e<1.2){}
 else if(e<2.4){const u=(e-1.2)/1.2;if(cur.s<1){cur.s=1;splash();FXS[cur.i]()}cur.f.visible=true;FS.copy(p.bt);FS.y=-.4;cur.f.position.lerpVectors(FS,hov,u);cur.f.position.y+=Math.sin(Math.PI*u)*2.4;cur.f.rotation.z=Math.sin(u*9)*.5}
-else if(e<cur.D){if(cur.s<2){cur.s=2;p.pts+=cur.tr.p;p.inv[cur.nome]=(p.inv[cur.nome]||0)+1;if(cur.tr.p>=50)p.rare++;renderRank();renderJar(p);$('lt').textContent=`${p.name} pescou ${cur.nome} +${cur.tr.p}`}
+else if(e<cur.D){if(cur.s<2){cur.s=2;p.pts+=cur.tr.p;p.inv[cur.nome]=(p.inv[cur.nome]||0)+1;if(cur.tr.p>=50)p.rare++;renderRank();renderJar(p);$('lt').textContent=`${p.name} pescou ${cur.nome} +${cur.tr.p}`;try{window.onPesca&&onPesca(p,cur.nome,cur.tr.p,cur.i)}catch(x){}}
 cur.f.position.set(hov.x,hov.y+Math.sin(t*3)*.08,hov.z);cur.f.rotation.set(0,e*1.6,Math.sin(t*4)*.15)}
 else{sc.remove(cur.f);p.st=1;p.t0=t;cur=null}}
 HKM.visible=false;P.forEach(p=>{const full=cur&&cur.p===p;if(!full&&!p.st)return;const e=full?t-cur.t0:t-p.t0;if(p.ar&&!p.bn)initArms(p);const v=poseAt(e,full);if(v)applyPose(p,v);else if(!full){applyPose(p,K.i);p.st=0}lineFx(p,e,full,t)});
@@ -254,10 +254,12 @@ CL.forEach(c=>{c.position.x+=c.userData.v*dt;if(c.position.x>95)c.position.x=-95
 BD.forEach(b=>{const u=b.userData;u.a+=u.sp*dt;const cx=Math.cos(u.a)*u.rad,cz=Math.sin(u.a)*u.rad*.6;b.position.set(cx,u.h+Math.sin(t+u.ph)*.8,-35+cz);b.rotation.y=Math.atan2(-Math.sin(u.a)*u.rad,Math.cos(u.a)*u.rad*.6);const f=Math.sin(t*9+u.ph)*.6;u.l.rotation.z=-f;u.r.rotation.z=f});
 WS.forEach(w=>{w.position.x+=w.userData.v*dt;if(w.position.x>34)w.position.x=-34;w.position.y+=Math.sin(t*2+w.position.x)*.004});
 TR.forEach(o=>{o.rotation.z=Math.sin(t*1.3+o.userData.s)*.025});
+try{window.onQuadro&&onQuadro(dt,t)}catch(x){}
 rd.render(sc,cam)}
 loop();
 const SW=405,SH=720;
 function fit(){const k=Math.min(innerWidth/SW,innerHeight/SH);$('st').style.transform=`translate(-50%,-50%) scale(${k})`;rd.setPixelRatio(Math.min(devicePixelRatio*k,3));rd.setSize(SW,SH);cam.aspect=SW/SH;cam.fov=68;cam.updateProjectionMatrix()}
 addEventListener('resize',fit);fit();
 </script><script src="app.js"></script>
+<script src="apresentador.js"></script>
 </body></html>
