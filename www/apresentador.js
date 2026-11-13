@@ -120,7 +120,7 @@
   const cssE = document.createElement('style');
   cssE.textContent = `.bal-esp{position:fixed;left:0;top:0;max-width:150px;width:max-content;padding:4px 8px;border-radius:12px;background:#fff;border:2px solid #2a6fd6;
     color:#14223d;font:600 10.5px/1.25 system-ui,Roboto,sans-serif;transform:translate(-50%,-100%);pointer-events:none;opacity:0;transition:opacity .25s;z-index:4;word-break:break-word}
-    .bal-esp.on{opacity:1}.bal-esp:after{content:'';position:absolute;left:50%;bottom:-7px;margin-left:-6px;border:6px solid transparent;border-top:7px solid #2a6fd6;border-bottom:0}`;
+    .bal-esp.on{opacity:1}body.captura .bal-esp,body.captura #fala{opacity:0!important;transition:opacity .15s}.bal-esp:after{content:'';position:absolute;left:50%;bottom:-7px;margin-left:-6px;border:6px solid transparent;border-top:7px solid #2a6fd6;border-bottom:0}`;
   document.head.appendChild(cssE);
   const balEsp = [], V = new T.Vector3();
   function posEsp(b) {
@@ -276,6 +276,7 @@
     balao.style.setProperty('--rabo', Math.min(Math.max(50 + (x - xc) / bw * 100, 12), 88) + '%');
   }
   window.onQuadro = (dt, t) => {
+    document.body.classList.toggle('captura', !!cur); // na hora da captura do peixe, esconde os baloes
     posBalao();
     if (mixer) mixer.update(dt);
     ang += VEL * dt;
