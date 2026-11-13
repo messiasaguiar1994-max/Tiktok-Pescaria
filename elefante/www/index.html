@@ -91,6 +91,7 @@
 
 <script>window.APP_MODE=true;</script>
 <script src="lib/three.min.js"></script>
+<script src="lib/GLTFLoader.js"></script>
 <script>
 (function(){
 'use strict';
@@ -715,7 +716,7 @@ function makeElephant(){
     parent.add(seg);parent=seg;trunk.push(seg);}
   const tipCap=M(new THREE.SphereGeometry(.17,12,8),pink);tipCap.scale.set(1,.5,1);tipCap.position.y=-L;parent.add(tipCap);
   const tip=new THREE.Object3D();tip.position.y=-L-.1;parent.add(tip);
-  return {root,body,legs,tail,head,ears,base,trunk,tip,eyes};
+  return {root,body,legs,tail,head,ears,base,trunk,tip,eyes,proc:body.children.slice()};
 }
 const E=makeElephant();scene.add(E.root);
 const el={x:0,z:6,yaw:0,state:'idle',timer:0,phase:0,walk:0,speed:2.6,path:[],onDone:null,job:null,panel:null,inCage:false,
@@ -724,7 +725,7 @@ const el={x:0,z:6,yaw:0,state:'idle',timer:0,phase:0,walk:0,speed:2.6,path:[],on
 
 // ======================================================= RIDERS (rosquinha / capivara)
 const riders=[];const SEATS=[.72,-.08,-.88,-1.5];
-const seatY=z=>2.55+1.44*Math.sqrt(Math.max(0,1-(z/1.95)*(z/1.95)))+.02;
+let seatY=z=>2.55+1.44*Math.sqrt(Math.max(0,1-(z/1.95)*(z/1.95)))+.02;
 let riderJolt=0;
 function circlePhoto(img,size,border){const c=document.createElement('canvas');c.width=c.height=size;const x=c.getContext('2d');
   x.save();x.beginPath();x.arc(size/2,size/2,size/2-border,0,Math.PI*2);x.clip();
@@ -768,7 +769,7 @@ function addRider(name,photo,silent,icon='rosquinha'){
   const img=new Image();
   img.onload=()=>{fontReady.then(()=>{
     const d=makeDoll(name,img);const i=riders.length;const s=seatFor(i);
-    E.body.add(d.g);const rd={name,photo,...d,i,t0:clock.elapsedTime,seat:s};
+    (E.riderParent||E.body).add(d.g);const rd={name,photo,...d,i,t0:clock.elapsedTime,seat:s};
     d.g.position.set(3.5,-1,s.z);d.tag.position.y=1.75+(i%3)*.5;riders.push(rd);saveRiders();updateRiderChip();
     if(!silent){toast(`${gi(icon)} <b>${escapeHtml(name)}</b> subiu no elefante! 🐘🎉`,2.8,'ride');giftSfx('ride');}
   });};
@@ -776,7 +777,7 @@ function addRider(name,photo,silent,icon='rosquinha'){
   if(photo&&!photo.startsWith('data:'))img.crossOrigin='anonymous';
   img.src=photo||makeAvatar(name);
 }
-function clearRiders(){riders.forEach(r=>E.body.remove(r.g));riders.length=0;saveRiders();updateRiderChip();}
+function clearRiders(){riders.forEach(r=>{if(r.g.parent)r.g.parent.remove(r.g);});riders.length=0;saveRiders();updateRiderChip();}
 function saveRiders(){try{localStorage.setItem('elefante_riders',JSON.stringify(riders.map(r=>({name:r.name,photo:r.photo&&r.photo.length<200000?r.photo:null}))));}catch(e){}}
 function updateRiderChip(){const c=document.getElementById('riderChip');c.style.display=riders.length?'':'none';c.innerHTML=`<img class="gi" style="height:1.4em" src="${GIFT_ICONS.rosquinha}">${riders.length} na garupa do elefante`;}
 function animateRiders(dt,time){
@@ -1169,14 +1170,14 @@ function chooseQuickSpot(big){
   const now=clock.elapsedTime;let best=null,bs=1e9;
   for(const b of baobabs){const d0=Math.hypot(b.x-el.x,b.z-el.z);if(d0>22)continue;
     if(window.__forceGround)break;
-    for(const f of b.faces){const sa=f.phi+.5;const sx=b.x+Math.sin(sa)*(BAO_R0+4.6),sz=b.z+Math.cos(sa)*(BAO_R0+4.6);
+    for(const f of b.faces){const sa=f.phi+.5;const sx=b.x+Math.sin(sa)*(BAO_R0+6.2),sz=b.z+Math.cos(sa)*(BAO_R0+6.2);
       if(inZone(sx,sz,.5))continue;const d=Math.hypot(sx-el.x,sz-el.z)+(now-f.usedAt<90?14:0);if(d<bs){bs=d;best={b,f,sx,sz};}}}
   if(best&&bs<20){best.f.usedAt=now;const p=getTreePanel(best.b,best.f,big);return {panel:p,stand:{x:best.sx,z:best.sz}};}
   const tries=[0,.55,-.55,1.1,-1.1,1.7,-1.7,Math.PI];let pick=null;
-  for(const a of tries){const yaw=el.yaw+a+rand(-.1,.1);const cx=el.x+Math.sin(yaw)*5.8,cz=el.z+Math.cos(yaw)*5.8;
+  for(const a of tries){const yaw=el.yaw+a+rand(-.1,.1);const cx=el.x+Math.sin(yaw)*7.4,cz=el.z+Math.cos(yaw)*7.4;
     if(inZone(cx,cz,2))continue;
     if(groundPanels.some(g=>now-g.usedAt<240&&Math.hypot(g.center.x-cx,g.center.z-cz)<4.6))continue;pick={yaw,cx,cz};break;}
-  if(!pick){const yaw=el.yaw;pick={yaw,cx:el.x+Math.sin(yaw)*5.8,cz:el.z+Math.cos(yaw)*5.8};}
+  if(!pick){const yaw=el.yaw;pick={yaw,cx:el.x+Math.sin(yaw)*7.4,cz:el.z+Math.cos(yaw)*7.4};}
   // camera stands behind-right of the elephant; the picture is turned to read upright from there
   const fx=Math.sin(pick.yaw),fz=Math.cos(pick.yaw),rx=-Math.cos(pick.yaw),rz=Math.sin(pick.yaw);
   let side=1;const camOk=sd=>baobabs.every(b=>Math.hypot(el.x-fx*2.5+rx*5.5*sd-b.x,el.z-fz*2.5+rz*5.5*sd-b.z)>8);
@@ -1366,6 +1367,7 @@ function animateProps(dt,time){
     if(snake.t>9){scene.remove(snake.g);snake=null;}}
 }
 function animateElephant(dt,time){
+  if(MODEL.el){animateElephantModel(dt,time);return;}
   const P=el.pose,run=el.speed>4&&el.state==='travel';
   E.root.position.set(el.x,groundH(el.x,el.z),el.z);E.root.rotation.y=el.yaw;
   const sw=Math.sin(el.phase)*(run?.65:.5)*el.walk;
@@ -1421,6 +1423,9 @@ function animateAnimals(dt,time){
   lion.head.position.y=1.95+lion.alert*.35;lion.head.position.z=1.65+lion.alert*.15;
   lion.yawnT-=dt;let jaw=0;if(!near&&lion.yawnT<0){if(lion.yawnT<-2)lion.yawnT=rand(10,18);jaw=Math.sin((-lion.yawnT)/2*Math.PI)*.6;}
   lion.jaw.rotation.x=jaw;
+  if(MODEL.lion){const ML=MODEL.lion;ML.e.set(lion.head.rotation.x*.8,lion.head.rotation.y*.85,0);ML.q.setFromEuler(ML.e);ML.U.uHeadQ.value.set(ML.q.x,ML.q.y,ML.q.z,ML.q.w);
+    ML.e.set(0,Math.sin(time*(1.5+lion.alert*3))*.35,Math.sin(time*1.1)*.1);ML.q.setFromEuler(ML.e);ML.U.uTailQ.value.set(ML.q.x,ML.q.y,ML.q.z,ML.q.w);
+    ML.grp.scale.y=1+Math.sin(time*2.2)*.012;}
   lion.tail.forEach((s,i)=>{s.rotation.y=Math.sin(time*(1.5+lion.alert*3)-i*.6)*.25;s.rotation.x=-.15+i*.02;});
   const gt=(el.inCage||(el.job&&el.panel===cagePanel&&Math.hypot(el.x-GATE_OUT.x,el.z-GATE_OUT.z)<26))?1:0;
   gateOpen=lerp(gateOpen,gt,Math.min(1,dt*2));cageGate.position.y=gateOpen*9.6;
@@ -1529,6 +1534,130 @@ function updateLegends(dt,time){
 }
 window.__legend=m=>{legends.forEach(removeLegend);legends.length=0;legendIdx=LEG_MODES.indexOf(m);spawnLegend();legendT=60;};
 
+// ======================================================= 3D MODELS SENT BY THE USER (elefante.glb / leao.glb)
+const MODEL={el:null,lion:null};
+const MODEL_BASE=window.MODEL_BASE||'models/';
+function skinnedBox(sk,space){const b=new THREE.Box3(),v=new THREE.Vector3();const p=sk.geometry.attributes.position;
+  for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);sk.boneTransform(i,v);v.applyMatrix4(sk.matrixWorld);if(space)space.worldToLocal(v);b.expandByPoint(v);}return b;}
+function blanketTex(){const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d');
+  x.fillStyle='#c8302f';x.fillRect(0,0,256,128);x.fillStyle='#ffc93c';x.fillRect(0,0,256,12);x.fillRect(0,116,256,12);x.fillRect(0,0,12,128);x.fillRect(244,0,12,128);
+  x.fillStyle='#2a7bd6';for(let i=0;i<8;i++){x.beginPath();x.moveTo(24+i*30,64);x.lineTo(36+i*30,44);x.lineTo(48+i*30,64);x.lineTo(36+i*30,84);x.fill();}
+  return new THREE.CanvasTexture(c);}
+function setupElephantModel(g){
+  const o=g.scene;let sk=null;o.traverse(m=>{if(m.isSkinnedMesh){sk=m;m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;}});
+  if(!sk)return;
+  const holder=new THREE.Group();holder.add(o);E.body.add(holder);
+  const mixer=new THREE.AnimationMixer(o);const actions={};
+  g.animations.forEach(a=>{actions[a.name.replace('TRS|','')]=mixer.clipAction(a);});
+  actions.idle.play();mixer.update(0);E.root.updateMatrixWorld(true);
+  let b=skinnedBox(sk,E.body);const h=b.max.y-b.min.y;const k=4.1/h;holder.scale.setScalar(k);E.root.updateMatrixWorld(true);
+  b=skinnedBox(sk,E.body);holder.position.set(-(b.min.x+b.max.x)/2,-b.min.y,-(b.min.z+b.max.z)/2+.25);E.root.updateMatrixWorld(true);
+  b=skinnedBox(sk,E.body);
+  // hide the old hand-made elephant
+  E.proc.forEach(c=>c.visible=false);
+  o.traverse(m=>{if(m.isMesh&&m.material){m.material.metalness=0;m.material.roughness=.85;if(m.material.map){m.material.map.encoding=THREE.LinearEncoding;m.material.map.needsUpdate=true;}m.material.needsUpdate=true;}});
+  const bones={};sk.skeleton.bones.forEach(bn=>bones[bn.name]=bn);
+  const find=s=>sk.skeleton.bones.find(bn=>bn.name.indexOf(s)===0);
+  E.tip=find('proboscis09_end')||find('proboscis09')||E.tip;E.head=find('head1_head')||E.head;
+  // height of the back along the body, to seat the riders
+  const p=sk.geometry.attributes.position,v=new THREE.Vector3(),back=[];const halfW=(b.max.x-b.min.x)/2;
+  for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);sk.boneTransform(i,v);v.applyMatrix4(sk.matrixWorld);E.body.worldToLocal(v);if(Math.abs(v.x)<halfW*.3)back.push([v.z,v.y]);}
+  const topAt=z=>{let m=-1;for(const [bz,by] of back)if(Math.abs(bz-z)<.35&&by>m)m=by;return m;};
+  // find the highest back point behind the head (the shoulders) and lay seats backwards from there
+  let zs=[];for(let z=b.min.z+.6;z<b.max.z-1.6;z+=.1)zs.push([z,topAt(z)]);
+  zs=zs.filter(a=>a[1]>0);const top=zs.reduce((a,c)=>c[1]>a[1]?c:a,zs[0]);
+  const len=b.max.z-b.min.z;const seatZ=[top[0]-.05,top[0]-len*.16,top[0]-len*.3,top[0]-len*.42];
+  SEATS.length=0;seatZ.forEach(z=>SEATS.push(z));
+  const backTop={};seatZ.forEach(z=>backTop[z]=topAt(z));
+  seatY=z=>(backTop[z]!=null?backTop[z]:topAt(z))-.02;
+  const spine=find('spine1_hiResSpine3')||find('spine1_hiResSpine2')||sk.skeleton.bones[1];
+  const saddle=new THREE.Object3D();E.body.add(saddle);E.root.updateMatrixWorld(true);spine.attach(saddle);
+  // saddle blanket
+  const midZ=(seatZ[0]+seatZ[3])/2,blen=Math.abs(seatZ[0]-seatZ[3])+1.2,yTop=topAt(midZ);
+  let tw=0;for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);sk.boneTransform(i,v);v.applyMatrix4(sk.matrixWorld);E.body.worldToLocal(v);if(Math.abs(v.z-midZ)<.4&&v.y>yTop*.7)tw=Math.max(tw,Math.abs(v.x));}
+  const r=Math.max(.6,tw*.95);
+  const bl=new THREE.Mesh(new THREE.CylinderGeometry(r,r,blen,24,1,true,-1.05,2.1),new THREE.MeshStandardMaterial({map:blanketTex(),roughness:.85,side:THREE.DoubleSide}));
+  bl.rotation.x=Math.PI/2;bl.rotation.y=Math.PI;bl.position.set(0,yTop-r+.06,midZ);bl.castShadow=true;
+  const blWrap=new THREE.Group();blWrap.add(bl);E.body.add(blWrap);spine.attach(blWrap);
+  riders.forEach((rd,i)=>{saddle.add(rd.g);rd.seat=seatFor(i);});
+  E.riderParent=saddle;
+  MODEL.el={mixer,actions,cur:null,sk,holder};
+  setClip('idle');
+}
+function setClip(name,opt={}){
+  const M=MODEL.el;if(!M)return;const a=M.actions[name];if(!a)return;
+  const key=name+(opt.freeze!=null?'@'+opt.freeze:'');
+  if(M.cur===key){if(opt.ts!=null&&opt.freeze==null)a.setEffectiveTimeScale(opt.ts);return;}
+  const prev=M.curAction;
+  a.reset();a.enabled=true;a.setLoop(opt.once?THREE.LoopOnce:THREE.LoopRepeat);a.clampWhenFinished=!!opt.once;
+  if(opt.freeze!=null){a.time=opt.freeze*a.getClip().duration;a.setEffectiveTimeScale(0);}
+  else a.setEffectiveTimeScale(opt.ts!=null?opt.ts:1);
+  if(opt.from!=null)a.time=opt.from*a.getClip().duration;
+  a.setEffectiveWeight(1);a.play();
+  if(prev&&prev!==a)prev.crossFadeTo(a,opt.fade||.3,false);
+  M.cur=key;M.curAction=a;
+}
+function animateElephantModel(dt,time){
+  const M=MODEL.el;const s=el.state,a=el.act,adv=el.adv;
+  E.root.position.set(el.x,groundH(el.x,el.z),el.z);E.root.rotation.y=el.yaw;
+  E.body.position.y=el.hop+el.fx.y;E.body.rotation.z=el.fx.rz;E.body.rotation.x=el.fx.rx;
+  if(s==='travel'){if(el.walk<.2)setClip('idle');else if(el.speed>4)setClip('run',{ts:el.speed/7.5});else setClip('walk',{ts:el.speed/2.3});}
+  else if(s==='activity'&&a){
+    if(a.type==='graze')setClip('eating');
+    else if(a.type==='look')setClip('idle');
+    else if(a.type==='greet')setClip(a.t<3?'drop':'idle');
+    else if(a.type==='drink')setClip(a.t<3.2?'eating':'idle trumpet');
+  }
+  else if(s==='aim'||s==='spray'){const P=el.panel;if(P&&P.kind==='ground')setClip('idle trumpet',{freeze:.5});else setClip('idle Trumped',{freeze:.25});}
+  else if(s==='proud'){const big=el.panel&&(el.panel.kind==='giant'||el.panel.kind==='cage'||(el.job&&el.job.kind==='rose'));setClip(big?'drop':'idle');}
+  else if(s==='adv'&&adv){const t=adv.t;
+    if(adv.type==='snake'){if(t<.9)setClip('idle');else if(t<2.6)setClip('fight idle',{from:.3,once:true,fade:.15});else if(t<4.4)setClip('walk',{ts:-.9});else setClip('idle');}
+    else if(adv.type==='buck')setClip('fight',{ts:1.2});
+    else if(adv.type==='dance')setClip('drop',{ts:1.6});
+    else if(adv.type==='butterfly'){if(t<4.4)setClip('idle Trumped',{ts:.6});else if(t<5.4)setClip('hit front',{once:true,fade:.1});else setClip('idle');}
+    else if(adv.type==='melon'){if(adv.stage===0)setClip('walk',{ts:1});else if(adv.stage===1)setClip('pick');else if(adv.stage===2)setClip('pick');else setClip('eating');}
+  }
+  else setClip('idle');
+  M.mixer.update(dt);
+}
+function setupLionModel(g){
+  const o=g.scene;o.updateMatrixWorld(true);const meshes=[];o.traverse(m=>{if(m.isMesh)meshes.push(m);});
+  const geos=meshes.map(m=>{const ge=m.geometry.clone();ge.applyMatrix4(m.matrixWorld);return {ge,m};});
+  const b=new THREE.Box3();geos.forEach(x=>{x.ge.computeBoundingBox();b.union(x.ge.boundingBox);});
+  const k=3.6/(b.max.y-b.min.y);const T=new THREE.Matrix4().makeScale(k,k,k).multiply(new THREE.Matrix4().makeTranslation(-(b.min.x+b.max.x)/2,-b.min.y,-(b.min.z+b.max.z)/2));
+  geos.forEach(x=>x.ge.applyMatrix4(T));
+  const bb=new THREE.Box3();geos.forEach(x=>{x.ge.computeBoundingBox();bb.union(x.ge.boundingBox);});
+  const L=bb.max.z-bb.min.z,Hh=bb.max.y;
+  // the mane piece tells where the head is
+  let mane=geos.reduce((a,x)=>x.ge.attributes.position.count<a.ge.attributes.position.count&&x.ge.attributes.position.count>500?x:a,geos[0]);
+  geos.forEach(x=>{if(x!==geos[0]&&x.ge.attributes.position.count>500&&x.ge.attributes.position.count<5000)mane=x;});
+  mane.ge.computeBoundingBox();const mb=mane.ge.boundingBox;
+  const pivot=new THREE.Vector3(0,mb.min.y+(mb.max.y-mb.min.y)*.25,mb.min.z+.1);
+  const tailBase=new THREE.Vector3(0,Hh*.5,bb.min.z+L*.2);
+  const U={uHeadQ:{value:new THREE.Vector4(0,0,0,1)},uPivot:{value:pivot},uTailQ:{value:new THREE.Vector4(0,0,0,1)},uTailP:{value:tailBase}};
+  const mat=meshes[0].material.clone();if(mat.map){mat.map.encoding=THREE.LinearEncoding;mat.map.needsUpdate=true;}
+  mat.onBeforeCompile=sh=>{Object.assign(sh.uniforms,U);
+    sh.vertexShader='attribute float hw;attribute float tw;\nuniform vec4 uHeadQ;uniform vec3 uPivot;uniform vec4 uTailQ;uniform vec3 uTailP;\nvec3 qrot(vec4 q,vec3 v){return v+2.0*cross(q.xyz,cross(q.xyz,v)+q.w*v);}\n'+sh.vertexShader
+      .replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nobjectNormal=normalize(mix(mix(objectNormal,qrot(uHeadQ,objectNormal),hw),qrot(uTailQ,objectNormal),tw));')
+      .replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed=mix(transformed,uPivot+qrot(uHeadQ,transformed-uPivot),hw);\ntransformed=mix(transformed,uTailP+qrot(uTailQ,transformed-uTailP),tw);');};
+  const grp=new THREE.Group();
+  geos.forEach(({ge,m})=>{const p=ge.attributes.position,n=p.count,hw=new Float32Array(n),tw=new Float32Array(n);
+    const whole=ge!==geos[0].ge&&!(m===meshes[0]);
+    for(let i=0;i<n;i++){const y=p.getY(i),z=p.getZ(i);
+      hw[i]=whole&&ge===mane.ge?1:smooth(pivot.z-.35,pivot.z+.45,z)*smooth(pivot.y-1.1,pivot.y-.3,y);
+      if(whole&&ge!==mane.ge&&z>pivot.z-.2)hw[i]=1;
+      tw[i]=ge===mane.ge?0:smooth(tailBase.z+.15,tailBase.z-.5,z)*smooth(Hh*.25,Hh*.42,y);}
+    ge.setAttribute('hw',new THREE.BufferAttribute(hw,1));ge.setAttribute('tw',new THREE.BufferAttribute(tw,1));
+    const me=new THREE.Mesh(ge,mat);me.castShadow=true;me.receiveShadow=true;grp.add(me);});
+  lion.root.children.forEach(c=>c.visible=false);lion.root.add(grp);
+  MODEL.lion={U,grp,q:new THREE.Quaternion(),e:new THREE.Euler(0,0,0,'YXZ')};
+}
+function loadModels(){
+  if(!THREE.GLTFLoader)return;const Ld=new THREE.GLTFLoader();
+  Ld.load(MODEL_BASE+'elefante.glb',g=>{try{setupElephantModel(g);}catch(e){console.error('elefante',e);}},undefined,e=>console.warn('elefante.glb',e));
+  Ld.load(MODEL_BASE+'leao.glb',g=>{try{setupLionModel(g);}catch(e){console.error('leao',e);}},undefined,e=>console.warn('leao.glb',e));
+}
+
 // ======================================================= CAMERA
 const camPos=new THREE.Vector3(6,9,26),camLook=new THREE.Vector3(0,3,0),wantPos=new THREE.Vector3(),wantLook=new THREE.Vector3();
 let camYaw=Math.PI,camSide=1,camSideT=25;
@@ -1537,6 +1666,7 @@ function camBlocked(cx,cz){
     if(Math.hypot(cx+dx*t-b.x,cz+dz*t-b.z)<BAO_R0+1.2)return true;}
   return false;}
 function updateCamera(dt,time){
+  if(window.__cam){const c=window.__cam;camera.position.set(c[0],c[1],c[2]);camera.lookAt(c[3],c[4],c[5]);return;}
   const portrait=innerHeight>innerWidth;let k=1-Math.exp(-dt*1.6);
   const P=el.panel;const painting=el.job&&(el.state==='aim'||el.state==='spray'||el.state==='proud');
   if(painting&&P.cam){
@@ -1545,9 +1675,9 @@ function updateCamera(dt,time){
     wantPos.copy(P.center).addScaledVector(P.normal,portrait?c.d:c.d*.82).addScaledVector(P.right,c.side);wantPos.y=P.center.y+c.dy;
   }else if(painting&&P.kind==='tree'){
     k=1-Math.exp(-dt*2.4);
-    const ca=P.face.phi-.85,cd=BAO_R0+(portrait?10.5:9);
+    const ca=P.face.phi-.85,cd=BAO_R0+(portrait?14:12);
     wantLook.copy(P.center).addScaledVector(P.normal,1.6);wantLook.y=P.center.y-.4;
-    wantPos.set(P.b.x+Math.sin(ca)*cd,P.center.y+2.2,P.b.z+Math.cos(ca)*cd);
+    wantPos.set(P.b.x+Math.sin(ca)*cd,P.center.y+3.4,P.b.z+Math.cos(ca)*cd);
   }else if(painting&&P.kind==='ground'){
     k=1-Math.exp(-dt*2.4);
     wantLook.copy(P.center).addScaledVector(P.up,.4);
@@ -1601,6 +1731,7 @@ function loop(){
 fontReady.then(()=>{drawPlaceholder(giantPanel);});
 // riders stay for the whole live (saved in this browser)
 try{const saved=JSON.parse(localStorage.getItem('elefante_riders')||'[]');saved.forEach(r=>addRider(r.name,r.photo,true));}catch(e){}
+loadModels();
 loop();
 if(!window.APP_MODE)setTimeout(()=>novoEvento('comentario','Fandango'),2500);
 window.descerTodos=clearRiders;window.forcarAventura=()=>{el.advT=0;el.forceAdv=true;};
