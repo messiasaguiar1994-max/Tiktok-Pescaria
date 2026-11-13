@@ -1,0 +1,45 @@
+# Monta o aplicativo (.APK) sozinho sempre que algo muda no projeto.
+# O APK pronto fica em "Releases" (https://github.com/<voce>/<projeto>/releases/latest).
+name: Montar APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Copiar o jogo para o projeto Android
+        run: npx cap sync android
+      - name: Montar o APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease -PversionCode=${{ github.run_number }} --no-daemon
+      - name: Renomear
+        run: cp android/app/build/outputs/apk/release/app-release.apk pescaria-ao-vivo.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pescaria-ao-vivo-apk
+          path: pescaria-ao-vivo.apk
+      - name: Publicar em Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.${{ github.run_number }}
+          name: Pescaria ao Vivo v1.${{ github.run_number }}
+          body: "Baixe o arquivo pescaria-ao-vivo.apk abaixo e instale no celular."
+          files: pescaria-ao-vivo.apk
+          make_latest: true

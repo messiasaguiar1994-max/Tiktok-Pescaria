@@ -1,0 +1,6 @@
+{
+  "appId": "com.pescaria.aovivo",
+  "appName": "Pescaria ao Vivo",
+  "webDir": "www",
+  "android": { "allowMixedContent": true }
+}

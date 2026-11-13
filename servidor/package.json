@@ -1,0 +1,9 @@
+{
+  "name": "pescaria-servidor",
+  "version": "1.0.0",
+  "description": "Servidor que liga o app Pescaria ao Vivo a live do TikTok",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=20" },
+  "dependencies": { "tiktok-live-connector": "^2.5.0" }
+}
