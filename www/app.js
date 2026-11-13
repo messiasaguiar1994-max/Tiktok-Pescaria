@@ -115,7 +115,7 @@
       }
       if (d.tipo === 'comentario' || d.tipo === 'chegou') { if (d.tipo === 'comentario') log(d.nome + ': ' + d.texto); try { window.apresentadorEvento && apresentadorEvento(d); } catch (e) {} return; }
       if (JOGO[d.tipo]) {
-        log(d.tipo === 'entrar' ? d.nome + ' sentou' : d.tipo === 'presente' ? d.nome + ' mandou presente (nível ' + d.nivel + ')' : d.nome + ' +50 curtidas');
+        log(d.tipo === 'entrar' ? d.nome + ' sentou' : d.tipo === 'presente' ? d.nome + ' mandou presente (nível ' + d.nivel + ')' : d.nome + ' +200 curtidas');
         try { aoEvento(d); } catch (e) { console.error(e); }
       }
     };

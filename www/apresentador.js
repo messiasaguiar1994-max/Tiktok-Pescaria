@@ -45,11 +45,12 @@
   let mixer = null, acoes = {};
   barco.scale.setScalar(1.7);
   barco.position.set(CENTRO.x + RAIO, -0.15, CENTRO.z);
-  sc.add(barco);
+  sc.add(barco); window.BARCO = barco;
 
   // modelo 3D do apresentador (arquivo com "apresentador" no nome)
   window.onModeloApresentador = g => {
-    const m = prep(g.scene, 1.7, 1);
+    const m = prep(g.scene, 1.75, 1, skinBox(g.scene));
+    m.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
     lugar.remove(pessoa); pessoa = m; lugar.add(m);
     m.traverse(o => { if (o.isMesh) o.castShadow = true; });
     if (g.animations && g.animations.length) {
@@ -59,6 +60,23 @@
       if (parado) acoes[parado].play();
       acoes._parado = acoes[parado];
       acoes._fala = acoes[Object.keys(acoes).find(k => /talk|fala|wave|acen|gesto/.test(k))] || null;
+    }
+  };
+
+  // barco 3D (arquivo com "barco" no nome): troca o barquinho simples
+  window.onModeloBarco = g => {
+    [casco, borda, banco1, banco2, mastro, bandeira, boia].forEach(o => o.visible = false);
+    const B = skinBox(g.scene), comp = B[3] - B[0] >= B[5] - B[2];
+    const m = prep(g.scene, 4.6, 0, B); if (comp) m.rotation.y = Math.PI / 2; // deixa o comprimento no sentido do movimento
+    const B2 = skinBox(m); m.position.y += -B2[1] - 0.25; // fundo do casco um pouco abaixo da agua
+    barco.scale.setScalar(1.25); barco.add(m); barco.updateMatrixWorld(true);
+    // acha a altura do convés na parte de trás do barco (raio de cima para baixo)
+    const rc = new T.Raycaster(), alvo = [], z = -0.25 * 4.6 / 1;
+    m.traverse(o => { if (o.isMesh) alvo.push(o); });
+    let deck = 0.4;
+    for (const zz of [z, z * 0.6, z * 1.3]) {
+      const o = barco.localToWorld(new T.Vector3(0, 6, zz)); rc.set(o, new T.Vector3(0, -1, 0));
+      const h = rc.intersectObjects(alvo, false)[0]; if (h) { deck = barco.worldToLocal(h.point.clone()).y; lugar.position.set(0, deck, zz); break; }
     }
   };
 
@@ -96,8 +114,8 @@
   }
 
   // ganchos do jogo
-  window.onPesca = (p, peixe, pontos, nivel) => {
-    poe('pesca', p.name + ' acabou de pescar: ' + peixe + ' (vale ' + pontos + ' pontos). Elogie e comente o peixe.', 5 + nivel, { nome: p.name });
+  window.onPesca = (p, peixe, pontos, nivel, rapida) => {
+    if (!rapida) poe('pesca', p.name + ' acabou de pescar: ' + peixe + ' (vale ' + pontos + ' pontos). Elogie e comente o peixe.', 5 + nivel, { nome: p.name });
     const top = [...P].sort((a, b) => b.pts - a.pts)[0];
     if (top && lider && top !== lider) poe('lider', top.name + ' passou ' + lider.name + ' e agora e o primeiro do ranking! Provoque o pessoal a reagir.', 9);
     if (top) lider = top;
@@ -120,10 +138,10 @@
     switch (f.tipo) {
       case 'pesca': return pick(['OLHA ISSO! ' + n + ' fisgou um peixão! Que pescaria, meu povo!', 'É PEIXE! ' + n + ' tá on fire hoje, quem vai alcançar?', 'Segura que vem! ' + n + ' puxou mais um da água!']);
       case 'lider': { const t = [...P].sort((a, b) => b.pts - a.pts)[0]; return pick(['Ihhhh galera, ' + (t ? t.name : n) + ' tá em primeiro! Vocês vão deixar?', 'Mudou o ranking! ' + (t ? t.name : n) + ' assumiu a liderança, quem tem coragem de passar?']); }
-      case 'sentou': return pick(['Bem-vindo ao lago, ' + n + '! Manda curtidas e presentes pra pescar!', 'Senta aí, ' + n + '! Cada 50 curtidas é um peixe, e presente pesca peixe melhor!']);
+      case 'sentou': return pick(['Bem-vindo ao lago, ' + n + '! Manda curtidas e presentes pra pescar!', 'Senta aí, ' + n + '! Cada 200 curtidas é um peixe, e presente pesca peixe melhor!']);
       case 'chegou': return pick(['Chegou ' + n + '! Comenta eu homem ou eu mulher e senta pra pescar!', 'Fala, ' + n + '! O lago tá cheio de peixe, comenta eu pra entrar!']);
       case 'chat': return pick(['Valeu pelo comentário, ' + n + '! Bora pescar que o peixe tá mordendo!', 'É isso aí, ' + n + '! E aí, vai pescar ou vai só olhar?']);
-      default: return pick(['Atenção, pescadores! Comenta eu homem ou eu mulher pra sentar no lago!', 'Cada 50 curtidas é um peixinho! Rosa pesca o peixe da rosa, e a Capybara traz um peixe surpresa!', 'O lago tá calmo demais... quem vai ser o primeiro a pescar um peixe dourado?', 'Olha o ranking, galera! Quem vai tomar o primeiro lugar?']);
+      default: return pick(['Atenção, pescadores! Comenta eu homem ou eu mulher pra sentar no lago!', 'Cada 200 curtidas é um peixinho! Rosa pesca o peixe da rosa, e a Capybara traz um peixe surpresa!', 'O lago tá calmo demais... quem vai ser o primeiro a pescar um peixe dourado?', 'Olha o ranking, galera! Quem vai tomar o primeiro lugar?']);
     }
   }
 

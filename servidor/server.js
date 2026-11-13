@@ -8,6 +8,7 @@
 const http = require('http');
 
 const PORTA = process.env.PORT || 3000;
+const CURTIDAS = +process.env.CURTIDAS || 200; // curtidas para pescar um peixe pequeno
 const CHAVE_EULER = process.env.EULER_API_KEY || ''; // opcional: chave do eulerstream.com
 
 const nz = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -89,7 +90,7 @@ async function conectar(s) {
     for (const n of new Set([E.LIKE, 'like'])) c.on(n, d => {
       const p = pessoa(d); if (!p.id) return;
       s.likes[p.id] = (s.likes[p.id] || 0) + (d.likeCount || d.count || 1);
-      if (s.likes[p.id] >= 50) { const q = Math.floor(s.likes[p.id] / 50); s.likes[p.id] %= 50; s.emit({ tipo: 'curtidas', ...p, qtd: Math.min(q, 5) }); }
+      if (s.likes[p.id] >= CURTIDAS) { const q = Math.floor(s.likes[p.id] / CURTIDAS); s.likes[p.id] %= CURTIDAS; s.emit({ tipo: 'curtidas', ...p, qtd: Math.min(q, 5) }); }
     });
     for (const n of new Set([E.MEMBER, 'member'])) c.on(n, d => { const p = pessoa(d); if (p.id) s.emit({ tipo: 'chegou', ...p }); });
     c.on(K.DISCONNECTED || 'disconnected', () => { if (!s.ativa) return; s.status('reconectando', 'A live caiu ou terminou. Tentando de novo...'); s.tmr = setTimeout(() => conectar(s), 8000); });
@@ -127,7 +128,7 @@ const MODELO_VOZ = process.env.MODELO_VOZ || 'gpt-4o-mini-tts';
 const VOZ = process.env.VOZ || 'ash';
 const JEITO_VOZ = process.env.JEITO_VOZ || 'Fale em portugues do Brasil, como um apresentador de TV animado e engracado, com energia, ritmo rapido e sotaque brasileiro.';
 const PERSONA = `Voce e o "Capitao Pescador", apresentador de uma live de pescaria no TikTok. Voce esta num barquinho dando voltas no lago.
-Como o jogo funciona: quem comenta "eu homem" ou "eu mulher" senta num banco na beira do lago. Cada 50 curtidas pesca um peixe pequeno. Presentes pescam peixes melhores: Rosa = peixe da rosa, Team Bracelet = peixe dourado, Finger Heart = peixe robo, Tiny Diny = baleia, Capybara = peixe misterioso surpresa. Quem pesca mais fica em primeiro no ranking.
+Como o jogo funciona: quem comenta "eu homem" ou "eu mulher" senta num banco na beira do lago. Cada 200 curtidas pesca um peixe pequeno. Presentes pescam peixes melhores: Rosa = peixe da rosa, Team Bracelet = peixe dourado, Finger Heart = peixe robo, Tiny Diny = baleia, Capybara = peixe misterioso surpresa. Quem pesca mais fica em primeiro no ranking.
 Regras da sua fala:
 - Portugues do Brasil, bem informal e animado, estilo narrador de futebol/apresentador de auditorio. Pode usar girias leves.
 - No maximo 2 frases curtas (ate 28 palavras). Nada de emojis, hashtags, listas ou aspas.
