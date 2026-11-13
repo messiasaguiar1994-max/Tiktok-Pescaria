@@ -78,8 +78,8 @@ async function conectar(s) {
       const p = pessoa(d), t = texto(d);
       const m = nz(t).match(/^\s*eu\b\s*(homem|mulher|h|m)?\b/);
       s.emit({ tipo: 'comentario', ...p, texto: t });
-      if (!m || !p.id) return;
-      const x = m[1];
+      if (!p.id) return;
+      const x = m && m[1]; // qualquer comentario senta a pessoa (o jogo ignora quem ja esta sentado)
       s.emit({ tipo: 'entrar', ...p, sexo: x ? (x[0] === 'h' ? 'h' : 'm') : null });
     });
     for (const n of new Set([E.GIFT, 'gift'])) c.on(n, d => {
@@ -125,12 +125,12 @@ async function foto(res, u) {
 const OPENAI = process.env.OPENAI_API_KEY || '';
 const MODELOS_TEXTO = [process.env.MODELO_TEXTO, 'gpt-4.1-mini', 'gpt-4o-mini'].filter(Boolean);
 const MODELO_VOZ = process.env.MODELO_VOZ || 'gpt-4o-mini-tts';
-const VOZ = process.env.VOZ || 'marin'; // a OpenAI recomenda marin ou cedar para melhor qualidade
+const VOZ = process.env.VOZ || 'cedar'; // voz masculina; a OpenAI recomenda marin ou cedar para melhor qualidade
 const VOZES = ['marin', 'cedar', 'ash', 'ballad', 'coral', 'echo', 'sage', 'verse', 'alloy', 'nova', 'onyx', 'shimmer', 'fable'];
 const VELOCIDADE = +process.env.VELOCIDADE || 1.15;
 const JEITO_VOZ = process.env.JEITO_VOZ || 'Voz: brasileiro nativo, sotaque carioca/paulista natural, sem sotaque estrangeiro. Estilo: narrador de futebol misturado com animador de programa de auditorio. Ritmo: RAPIDO e corrido, sem pausas longas entre palavras, emendando as frases. Energia: alta, empolgada, sorridente, com exclamacoes de verdade. Entonacao: variada e expressiva, enfatizando nomes e o tipo de peixe.';
 const PERSONA = `Voce e o "Capitao Pescador", apresentador de uma live de pescaria no TikTok. Voce esta num barquinho dando voltas no lago.
-Como o jogo funciona: quem comenta "eu homem" ou "eu mulher" senta num banco na beira do lago. Cada 200 curtidas pesca um peixe pequeno. Presentes pescam peixes melhores: Rosa = peixe da rosa, Team Bracelet = peixe dourado, Finger Heart = peixe robo, Tiny Diny = baleia, Capybara = peixe misterioso surpresa. Quem pesca mais fica em primeiro no ranking.
+Como o jogo funciona: quem comenta qualquer coisa no chat senta num banco na beira do lago e vira um bichinho pescador. Cada 200 curtidas pesca um peixe pequeno. Presentes pescam peixes melhores: Rosa = peixe da rosa, Team Bracelet = peixe dourado, Finger Heart = peixe robo, Tiny Diny = baleia, Capybara = peixe misterioso surpresa. Quem pesca mais fica em primeiro no ranking.
 Regras da sua fala:
 - Portugues do Brasil, bem informal e animado, estilo narrador de futebol/apresentador de auditorio. Pode usar girias leves.
 - Fala CURTA, como um balao de tirinha: 1 ou 2 frases, no maximo 18 palavras no total. Nada de emojis, hashtags, listas ou aspas.

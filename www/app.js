@@ -52,11 +52,12 @@
       <div class="dica" id="aprst"></div>
       <label for="voz">Voz do apresentador</label>
       <select id="voz" style="width:100%;font-size:17px;padding:11px;border-radius:14px;border:1px solid #38557f;background:#0e2444;color:#fff">
-        <option value="marin">Marin (recomendada)</option><option value="cedar">Cedar (recomendada)</option><option value="ash">Ash</option>
-        <option value="ballad">Ballad</option><option value="echo">Echo</option><option value="verse">Verse</option><option value="sage">Sage</option>
-        <option value="coral">Coral</option><option value="alloy">Alloy</option><option value="onyx">Onyx</option><option value="nova">Nova</option><option value="shimmer">Shimmer</option></select>
+        <optgroup label="Homem"><option value="cedar">Cedar (homem, recomendada)</option><option value="ash">Ash (homem)</option><option value="echo">Echo (homem)</option>
+        <option value="onyx">Onyx (homem, grave)</option><option value="verse">Verse (homem)</option><option value="ballad">Ballad (homem)</option></optgroup>
+        <optgroup label="Mulher"><option value="marin">Marin (mulher)</option><option value="coral">Coral (mulher)</option><option value="sage">Sage (mulher)</option>
+        <option value="nova">Nova (mulher)</option><option value="shimmer">Shimmer (mulher)</option><option value="alloy">Alloy (neutra)</option></optgroup></select>
       <div class="lin"><button id="tvoz">🔊 Testar voz</button><span id="tvozst" class="dica" style="margin:0"></span></div>
-      <div class="dica">Durante o jogo, aperte o botão <b>Voltar</b> do celular para voltar a esta tela.</div>
+      <div class="dica">Durante o jogo, <b>toque na tela</b>: aparece o botão ⚙️ no canto de cima por alguns segundos. Toque nele para voltar aqui. O botão Voltar do celular também funciona.</div>
     </details>
     <details class="cx"><summary>🧪 Testar sem live</summary>
       <div class="dica">Coloca espectadores de mentira no jogo, para ver se está tudo funcionando.</div>
@@ -69,7 +70,8 @@
   $m('usu').value = guarda.ler('usuario', '') ? '@' + guarda.ler('usuario', '') : '';
   $m('srv').value = window.SERVIDOR;
   $m('apr').checked = guarda.ler('apresentador', '1') !== '0';
-  $m('voz').value = guarda.ler('voz', 'marin'); $m('voz').onchange = () => guarda.salvar('voz', $m('voz').value);
+  $m('voz').value = guarda.ler('voz2', 'cedar'); $m('voz').onchange = () => { guarda.salvar('voz2', $m('voz').value); guarda.salvar('voz', $m('voz').value); };
+  guarda.salvar('voz', $m('voz').value);
   $m('tvoz').onclick = () => {
     try { snd(); } catch (e) {}
     $m('tvozst').textContent = 'gerando a voz...'; window.ultimaVoz = null;
@@ -144,6 +146,16 @@
     history.pushState({ jogo: 1 }, '');
   };
   addEventListener('popstate', () => m.classList.remove('fora'));
+  // botao discreto para voltar as configuracoes: so aparece quando voce toca na tela
+  const volta = document.createElement('button'); volta.id = 'volta'; volta.textContent = '⚙️';
+  volta.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top) + 10px);right:10px;z-index:9998;width:54px;height:54px;border-radius:50%;border:2px solid #fff;background:rgba(10,20,45,.75);color:#fff;font-size:26px;display:none';
+  document.body.appendChild(volta);
+  let tv;
+  addEventListener('pointerdown', e => {
+    if (!m.classList.contains('fora') || e.target === volta) return;
+    volta.style.display = 'block'; clearTimeout(tv); tv = setTimeout(() => volta.style.display = 'none', 4000);
+  });
+  volta.onclick = () => { volta.style.display = 'none'; if (history.state && history.state.jogo) history.back(); else m.classList.remove('fora'); };
 
   // ---------- testes ----------
   let nt = 0;

@@ -127,10 +127,9 @@
   window.apresentadorEvento = d => {
     if (d.tipo === 'comentario' && d.texto) {
       chat.push({ nome: d.nome, texto: String(d.texto).slice(0, 120) }); if (chat.length > 8) chat.shift();
-      if (/^\s*eu\b/i.test(d.texto)) return; // quem pede pra sentar ja e tratado em "sentou"
       poe('chat', 'Responda o comentario de ' + d.nome + ': "' + String(d.texto).slice(0, 120) + '"', 3, { nome: d.nome });
     } else if (d.tipo === 'chegou') {
-      poe('chegou', 'Chegou na live: ' + d.nome + '. Cumprimente e chame para comentar "eu homem" ou "eu mulher" para sentar e pescar.', 2, { nome: d.nome });
+      poe('chegou', 'Chegou na live: ' + d.nome + '. Cumprimente e chame para comentar qualquer coisa no chat para sentar e pescar.', 2, { nome: d.nome });
     }
   };
 
@@ -142,9 +141,9 @@
       case 'pesca': return pick(['OLHA ISSO! ' + n + ' fisgou um peixão! Que pescaria, meu povo!', 'É PEIXE! ' + n + ' tá on fire hoje, quem vai alcançar?', 'Segura que vem! ' + n + ' puxou mais um da água!']);
       case 'lider': { const t = [...P].sort((a, b) => b.pts - a.pts)[0]; return pick(['Ihhhh galera, ' + (t ? t.name : n) + ' tá em primeiro! Vocês vão deixar?', 'Mudou o ranking! ' + (t ? t.name : n) + ' assumiu a liderança, quem tem coragem de passar?']); }
       case 'sentou': return pick(['Bem-vindo ao lago, ' + n + '! Manda curtidas e presentes pra pescar!', 'Senta aí, ' + n + '! Cada 200 curtidas é um peixe, e presente pesca peixe melhor!']);
-      case 'chegou': return pick(['Chegou ' + n + '! Comenta eu homem ou eu mulher e senta pra pescar!', 'Fala, ' + n + '! O lago tá cheio de peixe, comenta eu pra entrar!']);
+      case 'chegou': return pick(['Chegou ' + n + '! Comenta qualquer coisa e senta pra pescar!', 'Fala, ' + n + '! O lago tá cheio de peixe, comenta qualquer coisa pra entrar!']);
       case 'chat': return pick(['Valeu pelo comentário, ' + n + '! Bora pescar que o peixe tá mordendo!', 'É isso aí, ' + n + '! E aí, vai pescar ou vai só olhar?']);
-      default: return pick(['Atenção, pescadores! Comenta eu homem ou eu mulher pra sentar no lago!', 'Cada 200 curtidas é um peixinho! Rosa pesca o peixe da rosa, e a Capybara traz um peixe surpresa!', 'O lago tá calmo demais... quem vai ser o primeiro a pescar um peixe dourado?', 'Olha o ranking, galera! Quem vai tomar o primeiro lugar?']);
+      default: return pick(['Atenção, pescadores! Comenta qualquer coisa no chat pra sentar no lago!', 'Cada 200 curtidas é um peixinho! Rosa pesca o peixe da rosa, e a Capybara traz um peixe surpresa!', 'O lago tá calmo demais... quem vai ser o primeiro a pescar um peixe dourado?', 'Olha o ranking, galera! Quem vai tomar o primeiro lugar?']);
     }
   }
 
@@ -202,7 +201,7 @@
     for (let i = fila.length - 1; i >= 0; i--) if (t - fila[i].t > (fila[i].prio >= 5 ? 40000 : 20000)) fila.splice(i, 1);
     if (t - ultimaFala < 1800) return;
     if (fila.length) { fila.sort((a, b) => b.prio - a.prio || b.t - a.t); return falar(fila.shift()); }
-    if (t - ultimaFala > 35000) falar({ tipo: 'parado', evento: 'A live esta calma. Explique de um jeito divertido como funcionam as legendas (comentar eu, curtidas e presentes) ou provoque o pessoal com o ranking.', prio: 1, nomes: [] });
+    if (t - ultimaFala > 35000) falar({ tipo: 'parado', evento: 'A live esta calma. Explique de um jeito divertido como funcionam as legendas (comentar qualquer coisa para entrar, curtidas e presentes) ou provoque o pessoal com o ranking.', prio: 1, nomes: [] });
   }, 600);
   ultimaFala = agora() - 25000; // primeira fala uns 10s depois de abrir
 
