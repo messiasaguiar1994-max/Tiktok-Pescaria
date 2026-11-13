@@ -152,7 +152,7 @@
   function vozCelular(texto) {
     return new Promise(ok => {
       try {
-        const u = new SpeechSynthesisUtterance(texto); u.lang = 'pt-BR'; u.rate = 1.08; u.pitch = 1.05;
+        const u = new SpeechSynthesisUtterance(texto); u.lang = 'pt-BR'; u.rate = 1.3; u.pitch = 1.08;
         const v = speechSynthesis.getVoices().find(x => /pt[-_]BR/i.test(x.lang)); if (v) u.voice = v;
         u.onend = ok; u.onerror = ok; speechSynthesis.speak(u);
         setTimeout(ok, 1500 + texto.length * 90);
@@ -176,13 +176,14 @@
     if (srv && window.apresentadorIA !== false) {
       try {
         const c = new AbortController(), tm = setTimeout(() => c.abort(), 12000);
-        const r = await fetch(srv + '/apresentador', { method: 'POST', signal: c.signal, headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ usuario: usu, evento: f.evento, contexto: contexto() }) });
+        const r = await fetch(srv + '/apresentador', { method: 'POST', signal: c.signal, headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ usuario: usu, evento: f.evento, contexto: contexto(), vozNome: localStorage.getItem('pesc_voz') || '', teste: !!f.teste }) });
         clearTimeout(tm);
         const j = await r.json();
         if (j.texto) { texto = j.texto; audio = j.audio || ''; }
         else if (j.erro === 'sem_chave' || j.erro === 'chave_invalida' || j.erro === 'sem_credito') { window.apresentadorIA = false; window.apresentadorAviso && apresentadorAviso(j.erro); }
       } catch (e) {}
     }
+    window.ultimaVoz = audio ? 'ia' : 'celular';
     if (!texto) texto = falaPronta(f);
     txt.textContent = texto; balao.classList.add('on'); falando = true; closeBarco = true; nFalas++;
     if (acoes._fala) { acoes._fala.reset().fadeIn(.3).play(); }
@@ -192,6 +193,7 @@
     ultimaFala = agora(); ocupado = false;
   }
 
+  window.testarVoz = () => { if (ocupado) return false; window.apresentadorIA = undefined; falar({ tipo: 'parado', teste: true, evento: 'Teste de voz: se apresente rapidinho para a live e chame o pessoal pra pescar.', prio: 1, nomes: [] }); return true; };
   // escolhe o proximo assunto
   setInterval(() => {
     if (ocupado || !cfg.ligado()) return;

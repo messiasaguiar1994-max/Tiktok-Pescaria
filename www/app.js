@@ -50,6 +50,12 @@
       <div class="lin"><button id="salva">Salvar e testar</button></div>
       <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="apr" style="width:22px;height:22px"> Apresentador no barco (fala com o chat)</label>
       <div class="dica" id="aprst"></div>
+      <label for="voz">Voz do apresentador</label>
+      <select id="voz" style="width:100%;font-size:17px;padding:11px;border-radius:14px;border:1px solid #38557f;background:#0e2444;color:#fff">
+        <option value="marin">Marin (recomendada)</option><option value="cedar">Cedar (recomendada)</option><option value="ash">Ash</option>
+        <option value="ballad">Ballad</option><option value="echo">Echo</option><option value="verse">Verse</option><option value="sage">Sage</option>
+        <option value="coral">Coral</option><option value="alloy">Alloy</option><option value="onyx">Onyx</option><option value="nova">Nova</option><option value="shimmer">Shimmer</option></select>
+      <div class="lin"><button id="tvoz">🔊 Testar voz</button><span id="tvozst" class="dica" style="margin:0"></span></div>
       <div class="dica">Durante o jogo, aperte o botão <b>Voltar</b> do celular para voltar a esta tela.</div>
     </details>
     <details class="cx"><summary>🧪 Testar sem live</summary>
@@ -63,6 +69,13 @@
   $m('usu').value = guarda.ler('usuario', '') ? '@' + guarda.ler('usuario', '') : '';
   $m('srv').value = window.SERVIDOR;
   $m('apr').checked = guarda.ler('apresentador', '1') !== '0';
+  $m('voz').value = guarda.ler('voz', 'marin'); $m('voz').onchange = () => guarda.salvar('voz', $m('voz').value);
+  $m('tvoz').onclick = () => {
+    try { snd(); } catch (e) {}
+    $m('tvozst').textContent = 'gerando a voz...'; window.ultimaVoz = null;
+    if (!window.testarVoz || !testarVoz()) { $m('tvozst').textContent = 'ele está falando, tente de novo em instantes'; return; }
+    const t0 = Date.now(), iv = setInterval(() => { if (window.ultimaVoz && Date.now() - t0 > 300) { $m('tvozst').textContent = window.ultimaVoz === 'ia' ? 'voz da IA (OpenAI) ✔' : 'voz do celular (a IA não respondeu)'; window.ultimaVoz = null; clearInterval(iv) } if (Date.now() - t0 > 20000) clearInterval(iv) }, 300);
+  };
   $m('apr').onchange = () => guarda.salvar('apresentador', $m('apr').checked ? '1' : '0');
   window.apresentadorAviso = e => {
     const msg = { sem_chave: 'A IA ainda não está ligada no servidor (falta a chave da OpenAI no Render). Ele usa falas prontas e a voz do celular.',

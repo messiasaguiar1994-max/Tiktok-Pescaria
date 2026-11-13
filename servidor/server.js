@@ -125,8 +125,10 @@ async function foto(res, u) {
 const OPENAI = process.env.OPENAI_API_KEY || '';
 const MODELOS_TEXTO = [process.env.MODELO_TEXTO, 'gpt-4.1-mini', 'gpt-4o-mini'].filter(Boolean);
 const MODELO_VOZ = process.env.MODELO_VOZ || 'gpt-4o-mini-tts';
-const VOZ = process.env.VOZ || 'ash';
-const JEITO_VOZ = process.env.JEITO_VOZ || 'Fale em portugues do Brasil, como um apresentador de TV animado e engracado, com energia, ritmo rapido e sotaque brasileiro.';
+const VOZ = process.env.VOZ || 'marin'; // a OpenAI recomenda marin ou cedar para melhor qualidade
+const VOZES = ['marin', 'cedar', 'ash', 'ballad', 'coral', 'echo', 'sage', 'verse', 'alloy', 'nova', 'onyx', 'shimmer', 'fable'];
+const VELOCIDADE = +process.env.VELOCIDADE || 1.15;
+const JEITO_VOZ = process.env.JEITO_VOZ || 'Voz: brasileiro nativo, sotaque carioca/paulista natural, sem sotaque estrangeiro. Estilo: narrador de futebol misturado com animador de programa de auditorio. Ritmo: RAPIDO e corrido, sem pausas longas entre palavras, emendando as frases. Energia: alta, empolgada, sorridente, com exclamacoes de verdade. Entonacao: variada e expressiva, enfatizando nomes e o tipo de peixe.';
 const PERSONA = `Voce e o "Capitao Pescador", apresentador de uma live de pescaria no TikTok. Voce esta num barquinho dando voltas no lago.
 Como o jogo funciona: quem comenta "eu homem" ou "eu mulher" senta num banco na beira do lago. Cada 200 curtidas pesca um peixe pequeno. Presentes pescam peixes melhores: Rosa = peixe da rosa, Team Bracelet = peixe dourado, Finger Heart = peixe robo, Tiny Diny = baleia, Capybara = peixe misterioso surpresa. Quem pesca mais fica em primeiro no ranking.
 Regras da sua fala:
@@ -159,8 +161,13 @@ async function gerarTexto(evento, contexto) {
   }
   throw erro;
 }
-async function gerarVoz(texto) {
-  const r = await openai('audio/speech', { model: MODELO_VOZ, voice: VOZ, input: texto, instructions: JEITO_VOZ, response_format: 'mp3' });
+let velocidadeOk = true; // se a OpenAI recusar o ajuste de velocidade, para de mandar
+async function gerarVoz(texto, voz) {
+  const corpo = { model: MODELO_VOZ, voice: VOZES.includes(voz) ? voz : VOZ, input: texto, instructions: JEITO_VOZ, response_format: 'mp3' };
+  if (velocidadeOk && VELOCIDADE !== 1) corpo.speed = VELOCIDADE;
+  let r;
+  try { r = await openai('audio/speech', corpo); }
+  catch (e) { if (corpo.speed && e.status === 400) { velocidadeOk = false; delete corpo.speed; r = await openai('audio/speech', corpo); } else throw e; }
   return Buffer.from(await r.arrayBuffer()).toString('base64');
 }
 function lerCorpo(req) { return new Promise((ok, er) => { let b = ''; req.on('data', c => { b += c; if (b.length > 8000) req.destroy(); }); req.on('end', () => { try { ok(JSON.parse(b || '{}')); } catch (e) { er(e); } }); req.on('error', er); }); }
@@ -168,13 +175,13 @@ async function apresentador(req, res) {
   let q; try { q = await lerCorpo(req); } catch (e) { return json(res, { erro: 'pedido invalido' }, 400); }
   if (!OPENAI) return json(res, { erro: 'sem_chave' }, 503);
   const sala = limpaUsuario(q.usuario) || 'teste', agora = Date.now();
-  if (agora - (ultimoPorSala.get(sala) || 0) < 3500) return json(res, { erro: 'devagar' }, 429); // controla o gasto
+  if (!q.teste && agora - (ultimoPorSala.get(sala) || 0) < 3500) return json(res, { erro: 'devagar' }, 429); // controla o gasto
   ultimoPorSala.set(sala, agora);
   const evento = String(q.evento || '').slice(0, 400), contexto = String(q.contexto || '').slice(0, 600);
   try {
     const texto = await gerarTexto(evento, contexto);
     let audio = '';
-    if (q.voz !== false) { try { audio = await gerarVoz(texto); } catch (e) { console.log('[voz] falhou:', e.message); } }
+    if (q.voz !== false) { try { audio = await gerarVoz(texto, q.vozNome); } catch (e) { console.log('[voz] falhou:', e.message); } }
     return json(res, { texto, audio });
   } catch (e) { console.log('[apresentador] falhou:', e.message); return json(res, { erro: e.status === 401 ? 'chave_invalida' : e.status === 429 ? 'sem_credito' : 'falhou' }, 502); }
 }
