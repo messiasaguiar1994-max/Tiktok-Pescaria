@@ -1654,8 +1654,13 @@ function setupLionModel(g){
 }
 function loadModels(){
   if(!THREE.GLTFLoader)return;const Ld=new THREE.GLTFLoader();
-  Ld.load(MODEL_BASE+'elefante.glb',g=>{try{setupElephantModel(g);}catch(e){console.error('elefante',e);}},undefined,e=>console.warn('elefante.glb',e));
-  Ld.load(MODEL_BASE+'leao.glb',g=>{try{setupLionModel(g);}catch(e){console.error('leao',e);}},undefined,e=>console.warn('leao.glb',e));
+  // in the app the .glb files sit next to the game; on the web page they come packed inside .js files
+  const get=(name,cb)=>{const ok=g=>{try{cb(g);}catch(e){console.error(name,e);}};
+    if(window.APP_MODE){Ld.load(MODEL_BASE+name+'.glb',ok,undefined,e=>console.warn(name,e));return;}
+    const sc=document.createElement('script');sc.src=MODEL_BASE+name+'.js';
+    sc.onload=()=>{try{const s=atob(window.__GLB[name]);const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);delete window.__GLB[name];Ld.parse(u.buffer,'',ok,e=>console.warn(name,e));}catch(e){console.warn(name,e);}};
+    document.head.appendChild(sc);};
+  get('elefante',setupElephantModel);get('leao',setupLionModel);
 }
 
 // ======================================================= CAMERA
