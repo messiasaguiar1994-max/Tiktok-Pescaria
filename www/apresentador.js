@@ -184,7 +184,7 @@
       } catch (e) {}
     }
     if (!texto) texto = falaPronta(f);
-    txt.textContent = texto; balao.classList.add('on'); falando = true; closeBarco = (++nFalas % 2 === 0) && !cur;
+    txt.textContent = texto; balao.classList.add('on'); falando = true; closeBarco = true; nFalas++;
     if (acoes._fala) { acoes._fala.reset().fadeIn(.3).play(); }
     try { if (audio) await vozIA(audio); else await vozCelular(texto); } catch (e) { await new Promise(r => setTimeout(r, 2500)); }
     falando = false; if (acoes._fala) acoes._fala.fadeOut(.4);
@@ -209,7 +209,7 @@
   const idleOrig = idleCam;
   idleCam = function (t) {
     idleOrig(t);
-    if (falando && closeBarco) {
+    if (falando && closeBarco && !cur) {
       const fx = Math.cos(ang) * 6.5, fz = Math.sin(ang) * 6.5;
       want.set(barco.position.x - fx * 0.2 + 5.5, 3.6, barco.position.z + 6.5);
       lt.set(barco.position.x, 1.6, barco.position.z);
