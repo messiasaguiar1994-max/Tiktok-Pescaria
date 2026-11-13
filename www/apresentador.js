@@ -116,6 +116,35 @@
     if (fila.length > 12) { fila.sort((a, b) => b.prio - a.prio); fila.length = 12; }
   }
 
+  // ---------- balaozinho com o comentario do espectador, em cima da cabeca dele ----------
+  const cssE = document.createElement('style');
+  cssE.textContent = `.bal-esp{position:fixed;left:0;top:0;max-width:150px;width:max-content;padding:4px 8px;border-radius:12px;background:#fff;border:2px solid #2a6fd6;
+    color:#14223d;font:600 10.5px/1.25 system-ui,Roboto,sans-serif;transform:translate(-50%,-100%);pointer-events:none;opacity:0;transition:opacity .25s;z-index:4;word-break:break-word}
+    .bal-esp.on{opacity:1}.bal-esp:after{content:'';position:absolute;left:50%;bottom:-7px;margin-left:-6px;border:6px solid transparent;border-top:7px solid #2a6fd6;border-bottom:0}`;
+  document.head.appendChild(cssE);
+  const balEsp = [], V = new T.Vector3();
+  function posEsp(b) {
+    const p = b.p; if (!p || !p.g.parent) { b.el.classList.remove('on'); return; }
+    p.g.localToWorld(V.set(0, 3.2, 0)); V.project(cam);
+    const fora = V.z > 1 || V.x < -1.1 || V.x > 1.1 || V.y < -1.1 || V.y > 1.1;
+    b.el.style.visibility = fora ? 'hidden' : 'visible';
+    const hw = (b.el.offsetWidth || 120) / 2 + 4; b.el.style.left = Math.min(Math.max((V.x + 1) / 2 * 405, hw), 405 - hw) + "px";
+    b.el.style.top = Math.max((1 - V.y) / 2 * 720, 150) + 'px';
+  }
+  const limpa = t => String(t).replace(/https?:\/\/\S+|www\.\S+/gi, '').replace(/\s+/g, ' ').trim().slice(0, 70);
+  function mostraComentario(d, tentativa) {
+    const p = P.find(x => x.id === d.id);
+    if (!p) { if (!tentativa) setTimeout(() => mostraComentario(d, 1), 1500); return; } // quem acabou de entrar ainda esta sentando
+    const txt = limpa(d.texto); if (!txt) return;
+    let b = balEsp.find(x => x.p === p);
+    if (!b) {
+      if (balEsp.length >= 4) { const v = balEsp.shift(); v.el.remove(); clearTimeout(v.tm); }
+      b = { p, el: document.createElement('div') }; b.el.className = 'bal-esp'; document.getElementById('st').appendChild(b.el); balEsp.push(b);
+    }
+    b.el.textContent = txt; posEsp(b); setTimeout(() => b.el.classList.add('on'), 30);
+    clearTimeout(b.tm); b.tm = setTimeout(() => { b.el.classList.remove('on'); setTimeout(() => { b.el.remove(); const i = balEsp.indexOf(b); if (i >= 0) balEsp.splice(i, 1); }, 300); }, 7000);
+  }
+
   // ganchos do jogo
   window.onPesca = (p, peixe, pontos, nivel, rapida) => {
     if (!rapida) poe('pesca', p.name + ' acabou de pescar: ' + peixe + ' (vale ' + pontos + ' pontos). Elogie e comente o peixe.', 5 + nivel, { nome: p.name });
@@ -127,6 +156,7 @@
   window.apresentadorEvento = d => {
     if (d.tipo === 'comentario' && d.texto) {
       chat.push({ nome: d.nome, texto: String(d.texto).slice(0, 120) }); if (chat.length > 8) chat.shift();
+      try { mostraComentario(d); } catch (e) {}
       poe('chat', 'Responda o comentario de ' + d.nome + ': "' + String(d.texto).slice(0, 120) + '"', 3, { nome: d.nome });
     } else if (d.tipo === 'chegou') {
       poe('chegou', 'Chegou na live: ' + d.nome + '. Cumprimente e chame para comentar qualquer coisa no chat para sentar e pescar.', 2, { nome: d.nome });
@@ -192,6 +222,19 @@
     ultimaFala = agora(); ocupado = false;
   }
 
+  // assuntos para animar a live quando ninguem esta fazendo nada
+  let nAssunto = 0;
+  const lider1 = () => [...P].sort((a, b) => b.pts - a.pts)[0];
+  const ASSUNTOS = [
+    () => 'A live esta calma. Chame quem esta assistindo calado para comentar e entrar no jogo, com bom humor.',
+    () => lider1() ? lider1().name + ' esta em primeiro com ' + lider1().pts + ' pontos. Provoque o resto do lago para tentar passar.' : 'Ninguem pescou ainda. Desafie o chat a ser o primeiro a fisgar um peixe.',
+    () => 'Explique rapidinho os presentes: Rosa pesca o peixe da rosa, Team Bracelet o peixe dourado, Finger Heart o peixe robo, Tiny Diny a baleia e Capybara um peixe misterioso.',
+    () => 'Faca uma pergunta divertida para o chat responder (de onde estao assistindo, qual peixe querem pescar, etc).',
+    () => 'Conte uma piada curta de pescador ou uma "historia de pescador" exagerada e engracada.',
+    () => 'Lembre que cada 200 curtidas vira um peixe pequeno e chame a galera para encher a tela de curtidas.',
+    () => P.length > 1 ? 'Faca um mini placar narrado dos primeiros do ranking, como narrador de futebol.' : 'Diga que o lago esta vazio e chame o pessoal para sentar nos bancos.',
+    () => 'Comente o dia bonito no lago, o barco, os passaros, e chame quem acabou de chegar para participar.'
+  ];
   window.testarVoz = () => { if (ocupado) return false; window.apresentadorIA = undefined; falar({ tipo: 'parado', teste: true, evento: 'Teste de voz: se apresente rapidinho para a live e chame o pessoal pra pescar.', prio: 1, nomes: [] }); return true; };
   // escolhe o proximo assunto
   setInterval(() => {
@@ -201,9 +244,9 @@
     for (let i = fila.length - 1; i >= 0; i--) if (t - fila[i].t > (fila[i].prio >= 5 ? 40000 : 20000)) fila.splice(i, 1);
     if (t - ultimaFala < 1800) return;
     if (fila.length) { fila.sort((a, b) => b.prio - a.prio || b.t - a.t); return falar(fila.shift()); }
-    if (t - ultimaFala > 35000) falar({ tipo: 'parado', evento: 'A live esta calma. Explique de um jeito divertido como funcionam as legendas (comentar qualquer coisa para entrar, curtidas e presentes) ou provoque o pessoal com o ranking.', prio: 1, nomes: [] });
+    if (t - ultimaFala > 20000) falar({ tipo: 'parado', evento: ASSUNTOS[nAssunto++ % ASSUNTOS.length](), prio: 1, nomes: [] });
   }, 600);
-  ultimaFala = agora() - 25000; // primeira fala uns 10s depois de abrir
+  ultimaFala = agora() - 12000; // primeira fala uns 8s depois de abrir
 
   // ---------- camera: de vez em quando mostra o barco enquanto ele fala ----------
   let closeBarco = false, nFalas = 0;
@@ -249,6 +292,12 @@
     if (u.bD) u.bD.rotation.x = falando ? -1.2 + Math.sin(t * 3) * 0.15 : -0.2;
     if (u.bE) u.bE.rotation.z = falando ? 0.5 + Math.sin(t * 5) * 0.5 : 0.1;
     if (u.cab) u.cab.rotation.z = falando ? Math.sin(t * 6) * 0.08 : 0;
+    if (mixer && pessoa) { // balanca o corpo e "gesticula" enquanto fala
+      pessoa.rotation.z = falando ? Math.sin(t * 3.2) * 0.06 : pessoa.rotation.z * 0.9;
+      pessoa.position.y = falando ? Math.abs(Math.sin(t * 6.5)) * 0.04 : 0;
+      if (acoes._fala == null && acoes._parado) acoes._parado.timeScale = falando ? 1.8 : 1;
+    }
+    balEsp.forEach(posEsp);
     if (!mixer && pessoa) pessoa.position.y = falando ? Math.abs(Math.sin(t * 7)) * 0.05 : 0;
   };
 })();
