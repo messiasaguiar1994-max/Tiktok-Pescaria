@@ -284,7 +284,7 @@ function loop(){requestAnimationFrame(loop);const dt=Math.min(clk.getDelta(),.1)
 MX.forEach(m=>m.update(dt));P.forEach(p=>{if(p.mx)p.mx.update(dt);p.g.scale.lerp(new T.Vector3(1,1,1),1-Math.exp(-dt*5));p.g.rotation.z=Math.sin(t*.9+p.seed)*.03;p.bob.position.y=.07+Math.sin(t*2+p.seed)*.03;
 tip.set(0,1.5,0);p.rod.localToWorld(tip);const a=p.line.geometry.attributes.position;a.setXYZ(0,tip.x,tip.y,tip.z);a.setXYZ(1,p.bob.position.x,p.bob.position.y,p.bob.position.z);a.needsUpdate=true});
 rip.forEach(r=>{const u=((t*.35+r.userData.o)%1);r.scale.setScalar(.3+u*2.6);r.material.opacity=.35*(1-u)});
-if(!cur&&Q.length){const q=Q.shift(),tr=F[q.tier];focou(q);cur={p:q.p,tr,i:q.tier,top:FZ[q.tier]*.32,D:5.4+(q.tier>=3?2:0),nome:tr.n,t0:t,f:mkFish(tr),s:0};cur.f.visible=false;sc.add(cur.f)}
+if(!cur&&Q.length&&!window.MERGULHO){const q=Q.shift(),tr=F[q.tier];focou(q);cur={p:q.p,tr,i:q.tier,top:FZ[q.tier]*.32,D:5.4+(q.tier>=3?2:0),nome:tr.n,t0:t,f:mkFish(tr),s:0};cur.f.visible=false;sc.add(cur.f)}
 if(cur){const p=cur.p,e=t-cur.t0,pos=p.g.position;if(cur.f.userData.mx)cur.f.userData.mx.update(dt);hov.set(pos.x+p.fx*1.2+p.fz*.9,1.9,pos.z+p.fz*1.2-p.fx*.9);
 want.set(pos.x+p.fx*6.4-p.fz*1.0,2.9,pos.z+p.fz*6.4+p.fx*1.0);lt.set(pos.x+p.fx*.3,2.1,pos.z+p.fz*.3);
 if(e<1.2){}
@@ -308,4 +308,5 @@ function fit(){const k=Math.min(innerWidth/SW,innerHeight/SH);$('st').style.tran
 addEventListener('resize',fit);fit();
 </script><script src="app.js"></script>
 <script src="apresentador.js"></script>
+<script src="mergulho.js"></script>
 </body></html>
