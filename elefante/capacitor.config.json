@@ -1,0 +1,6 @@
+{
+  "appId": "com.elefante.aovivo",
+  "appName": "Elefante Pintor",
+  "webDir": "www",
+  "android": { "allowMixedContent": true }
+}
