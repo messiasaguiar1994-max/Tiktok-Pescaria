@@ -82,13 +82,16 @@
 
   // ---------- balao de fala ----------
   const css = document.createElement('style');
-  css.textContent = `#fala{position:fixed;left:50%;bottom:16px;transform:translateX(-50%) scale(.9);width:340px;box-sizing:border-box;
-    padding:8px 12px 9px;border-radius:16px;background:rgba(10,20,45,.86);border:2px solid #ffd34d;color:#fff;
-    font:700 14px/1.32 system-ui,Roboto,sans-serif;text-align:left;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;
-    box-shadow:0 0 14px rgba(255,200,60,.45)}#fala.on{opacity:1;transform:translateX(-50%) scale(1)}
-    #fala b{display:block;color:#ffd34d;font-size:11px;letter-spacing:.4px;margin-bottom:2px}`;
+  css.textContent = `#fala{position:fixed;left:0;top:0;width:max-content;max-width:190px;box-sizing:border-box;
+    padding:6px 9px 7px;border-radius:14px;background:#fffef5;border:2px solid #1d1d2b;color:#1d1d2b;
+    font:700 11.5px/1.28 system-ui,Roboto,sans-serif;text-align:left;opacity:0;transition:opacity .25s;pointer-events:none;
+    box-shadow:0 3px 8px rgba(0,0,0,.35);transform:translate(-50%,-100%);z-index:5}
+    #fala.on{opacity:1}
+    #fala:after{content:'';position:absolute;left:var(--rabo,50%);bottom:-9px;margin-left:-8px;border:8px solid transparent;border-top:9px solid #1d1d2b;border-bottom:0}
+    #fala:before{content:'';position:absolute;left:var(--rabo,50%);bottom:-6px;margin-left:-6px;border:6px solid transparent;border-top:7px solid #fffef5;border-bottom:0;z-index:1}
+    #fala b{display:block;color:#c0392b;font-size:9px;letter-spacing:.4px;margin-bottom:1px}`;
   document.head.appendChild(css);
-  const balao = document.createElement('div'); balao.id = 'fala'; balao.innerHTML = '<b>🎙️ CAPITÃO PESCADOR</b><span></span>';
+  const balao = document.createElement('div'); balao.id = 'fala'; balao.innerHTML = '<b>CAPITÃO PESCADOR</b><span></span>';
   document.getElementById('st').appendChild(balao);
   const txt = balao.querySelector('span');
 
@@ -215,7 +218,21 @@
 
   // ---------- movimento ----------
   let ang = 0;
+  const CAB = new T.Vector3();
+  function posBalao() {
+    if (!balao.classList.contains('on')) return;
+    lugar.localToWorld(CAB.set(0, mixer ? 2.0 : 1.75, 0)); // um pouco acima da cabeca
+    CAB.project(cam);
+    const W = 405, H = 720, bw = balao.offsetWidth || 160, bh = balao.offsetHeight || 50;
+    let x = (CAB.x + 1) / 2 * W, y = (1 - CAB.y) / 2 * H - 6;
+    if (CAB.z > 1) { x = W / 2; y = H * 0.55; } // atras da camera: deixa no meio
+    const xmin = bw / 2 + 6, xmax = W - bw / 2 - 6, ymin = bh + 140, ymax = H - 20; // nao cobre o ranking/legenda
+    const xc = Math.min(Math.max(x, xmin), xmax), yc = Math.min(Math.max(y, ymin), ymax);
+    balao.style.left = xc + 'px'; balao.style.top = yc + 'px';
+    balao.style.setProperty('--rabo', Math.min(Math.max(50 + (x - xc) / bw * 100, 12), 88) + '%');
+  }
   window.onQuadro = (dt, t) => {
+    posBalao();
     if (mixer) mixer.update(dt);
     ang += VEL * dt;
     const x = CENTRO.x + Math.cos(ang) * RAIO, z = CENTRO.z + Math.sin(ang) * RAIO * 0.75;
