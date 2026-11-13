@@ -184,7 +184,7 @@ function makeEnvTex(){const c=document.createElement('canvas');c.width=512;c.hei
   const t=new THREE.CanvasTexture(c);t.mapping=THREE.EquirectangularReflectionMapping;return t;}
 const ENV=makeEnvTex();
 const FLAT_N=(()=>{const c=document.createElement('canvas');c.width=c.height=2;const x=c.getContext('2d');x.fillStyle='#8080ff';x.fillRect(0,0,2,2);return new THREE.CanvasTexture(c);})();
-function paintMat(tex,extra={}){return new THREE.MeshStandardMaterial(Object.assign({map:tex,emissiveMap:tex,color:0xd9d9d9,emissive:0xffffff,emissiveIntensity:.22,
+function paintMat(tex,extra={}){return new THREE.MeshStandardMaterial(Object.assign({map:tex,emissiveMap:tex,color:0x8c8c8c,emissive:0xffffff,emissiveIntensity:.5,
   normalMap:FLAT_N,normalScale:new THREE.Vector2(1.3,1.3),roughness:.6,metalness:0,envMap:ENV,envMapIntensity:.18,transparent:true,depthWrite:false},extra));}
 let STROKES=null;
 function strokeField(){if(STROKES)return STROKES;const W=256,H=320;const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
@@ -198,13 +198,14 @@ function boxBlur(a,W,H,r){const t=new Float32Array(W*H),o=new Float32Array(W*H),
   for(let x=0;x<W;x++){let s=0;for(let y=-r;y<=r;y++)s+=t[clamp(y,0,H-1)*W+x];for(let y=0;y<H;y++){o[y*W+x]=s/n;s+=t[Math.min(H-1,y+r+1)*W+x]-t[Math.max(0,y-r)*W+x];}}
   return o;}
 // thick paint relief: raised paint layer + brush strokes + a bit of the picture itself
-function makeNormalMap(final,strength){
+function makeNormalMap(final,strength,circle){
   const W=256,H=320;const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.drawImage(final,0,0,W,H);
   const S=strokeField();const A=new Float32Array(W*H),L=new Float32Array(W*H);
   try{const d=x.getImageData(0,0,W,H).data;for(let i=0;i<W*H;i++){A[i]=d[i*4+3]/255;L[i]=(d[i*4]*.3+d[i*4+1]*.59+d[i*4+2]*.11)/255;}}
   catch(e){A.fill(1);}
   const Ab=boxBlur(A,W,H,5),Lb=boxBlur(L,W,H,1);const Hh=new Float32Array(W*H);
-  for(let i=0;i<W*H;i++)Hh[i]=Ab[i]*.9+(S[i]*.6+Lb[i]*.3)*A[i];
+  for(let i=0;i<W*H;i++)Hh[i]=Ab[i]*.9+(S[i]*.6)*A[i];
+  if(circle){const sx=W/512,sy=H/640;for(let y=0;y<H;y++)for(let xx=0;xx<W;xx++){const dx=xx/sx-circle.cx,dy=y/sy-circle.cy;if(dx*dx+dy*dy<(circle.R+34)*(circle.R+34))Hh[y*W+xx]=1.2;}}
   const out=x.createImageData(W,H),o=out.data;
   for(let y=0;y<H;y++)for(let xx=0;xx<W;xx++){const i=y*W+xx;
     const l=Hh[y*W+Math.max(0,xx-1)],r=Hh[y*W+Math.min(W-1,xx+1)],u=Hh[Math.max(0,y-1)*W+xx],dn=Hh[Math.min(H-1,y+1)*W+xx];
@@ -547,15 +548,15 @@ function drawPlaceholder(p){
   x.strokeText('PINTURA',256,500);x.fillText('PINTURA',256,500);x.strokeText('GIGANTE',256,555);x.fillText('GIGANTE',256,555);
   x.globalAlpha=1;x.setTransform(1,0,0,1,0,0);p.tex.needsUpdate=true;
 }
-const giantPanel=makeWallPanel({kind:'giant',W:768,H:960,w:12.8,h:16,center:new THREE.Vector3(0,9,WALL_Z+.07),yaw:0,
+const giantPanel=makeWallPanel({kind:'giant',W:1024,H:1280,w:12.8,h:16,center:new THREE.Vector3(0,9,WALL_Z+.07),yaw:0,
   stand:13,side:1.5,spray:4.5,reveal:5,rate:260,cam:{d:40,side:5,dy:.5,look:3,lookDy:-1.5}});
-const cagePanel=makeWallPanel({kind:'cage',W:768,H:960,w:9.6,h:12,center:new THREE.Vector3(CAGE.x+CAGE.half+.16,7.8,CAGE.z),yaw:-Math.PI/2,
+const cagePanel=makeWallPanel({kind:'cage',W:1024,H:1280,w:9.6,h:12,center:new THREE.Vector3(CAGE.x+CAGE.half+.16,7.8,CAGE.z),yaw:-Math.PI/2,
   stand:9.8,side:0,spray:4.5,reveal:5,rate:220,cam:{d:27,side:-2.5,dy:.4,look:3,lookDy:-1.6}});
 // ground paintings (pool, recycled)
 const groundPanels=[];
 const GROUND_GEO=new THREE.PlaneGeometry(1,1);
 function getGroundPanel(){
-  if(groundPanels.length<18){const p={kind:'ground',W:384,H:480,w:3.4,h:4.25,usedAt:-1e9,center:new THREE.Vector3(),normal:UP.clone(),right:new THREE.Vector3(),up:new THREE.Vector3()};
+  if(groundPanels.length<14){const p={kind:'ground',W:512,H:640,w:3.4,h:4.25,usedAt:-1e9,center:new THREE.Vector3(),normal:UP.clone(),right:new THREE.Vector3(),up:new THREE.Vector3()};
     attachCanvas(p);p.mesh=new THREE.Mesh(GROUND_GEO,paintMat(p.tex,{polygonOffset:true,polygonOffsetFactor:-2}));
     p.mesh.renderOrder=1;scene.add(p.mesh);groundPanels.push(p);return p;}
   return groundPanels.reduce((a,b)=>a.usedAt<b.usedAt?a:b);
@@ -574,7 +575,7 @@ function placeGroundPanel(p,cx,cz,yaw,big){
 const PANEL_Y0=0.9,PANEL_HH=3.6;
 function getTreePanel(b,face,big){
   if(!face.panel){
-    const p={kind:'tree',W:384,H:480,h:PANEL_HH,b,face};attachCanvas(p);
+    const p={kind:'tree',W:512,H:640,h:PANEL_HH,b,face};attachCanvas(p);
     const rb=baoR(PANEL_Y0)+.07,rt=baoR(PANEL_Y0+PANEL_HH)+.07,rm=baoR(PANEL_Y0+PANEL_HH/2)+.07;
     const arc=(PANEL_HH*.8)/rm;p.w=PANEL_HH*.8;
     const geo=new THREE.CylinderGeometry(rt,rb,PANEL_HH,18,1,true,face.phi-arc/2,arc);
@@ -614,10 +615,9 @@ function composeFinal(job,W,H,place){
   const crown=place==='cage';
   const cx=256,cy=crown?272:250,R=k==='comment'?165:150;
   x.save();x.beginPath();x.arc(cx,cy,R,0,Math.PI*2);x.clip();
-  const im=job.img,s=Math.max(2*R/im.width,2*R/im.height);x.drawImage(im,cx-im.width*s/2,cy-im.height*s/2,im.width*s,im.height*s);
-  if(k==='comment'){x.globalCompositeOperation='color';x.fillStyle='#2f8fe0';x.fillRect(cx-R,cy-R,2*R,2*R);
-    x.globalCompositeOperation='soft-light';x.fillStyle='rgba(255,255,255,.35)';x.fillRect(cx-R,cy-R,2*R,2*R);x.globalCompositeOperation='source-over';}
-  x.restore();
+  const im=job.img,s=Math.max(2*R/im.width,2*R/im.height);x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';
+  x.drawImage(im,cx-im.width*s/2,cy-im.height*s/2,im.width*s,im.height*s);
+  x.restore();job.circle={cx,cy,R};
   if(k==='comment'){
     x.lineWidth=18;x.strokeStyle='#fff';x.beginPath();x.arc(cx,cy,R,0,Math.PI*2);x.stroke();
     x.lineWidth=8;x.strokeStyle='#2aa7e8';x.beginPath();x.arc(cx,cy,R+11,0,Math.PI*2);x.stroke();
@@ -642,10 +642,10 @@ function composeFinal(job,W,H,place){
   return c;
 }
 const revealing=new Set(),drying=new Set();
-function updateDrying(dt){drying.forEach(p=>{p.dry=Math.min(1,p.dry+dt/(p.reveal+7));const m=p.mesh.material;m.roughness=lerp(.14,.6,p.dry);m.envMapIntensity=lerp(.6,.18,p.dry);if(p.dry>=1)drying.delete(p);});}
+function updateDrying(dt){drying.forEach(p=>{p.dry=Math.min(1,p.dry+dt/(p.reveal+7));const m=p.mesh.material;m.roughness=lerp(.25,.7,p.dry);m.envMapIntensity=lerp(.3,.1,p.dry);if(p.dry>=1)drying.delete(p);});}
 function startReveal(p,job){
   p.final=composeFinal(job,p.W,p.H,p.kind);p.active=true;p.t=0;p.kindJob=job.kind;revealing.add(p);
-  if(p.normalTex&&p.normalTex!==FLAT_N)p.normalTex.dispose();p.normalTex=makeNormalMap(p.final,job.kind==='comment'?4:7);p.mesh.material.normalMap=p.normalTex;
+  if(p.normalTex&&p.normalTex!==FLAT_N)p.normalTex.dispose();p.normalTex=makeNormalMap(p.final,6,job.circle);p.mesh.material.normalMap=p.normalTex;
   p.dry=0;drying.add(p);
   const n=24,cw=512/n;p.cols=[];
   for(let i=0;i<n;i++){const cxp=(i+.5)*cw+rand(-4,4);p.cols.push({x:cxp,w:cw*1.3,s:rand(.8,1.25),d:rand(0,.15)+Math.abs(cxp-256)/256*.18});}
@@ -664,7 +664,7 @@ function updateReveal(p,dt){
   x.globalCompositeOperation='source-over';x.drawImage(mask,0,0);
   x.globalCompositeOperation='source-in';x.drawImage(p.final,0,0);
   const tint=p.kindJob==='comment'?'80,165,255':p.kindJob==='heart'?'255,120,200':'255,220,120';
-  x.globalCompositeOperation='source-atop';x.fillStyle=`rgba(${tint},${(1-t)*0.5})`;x.fillRect(0,0,W,H);
+  x.globalCompositeOperation='source-atop';x.fillStyle=`rgba(${tint},${(1-t)*0.3})`;x.fillRect(0,0,W,H);
   x.globalCompositeOperation='destination-over';x.globalAlpha=0.28*(1-t);x.drawImage(mask,0,0);x.globalAlpha=1;
   x.globalCompositeOperation='source-over';
   if(t<1){x.setTransform(sx,0,0,sy,0,0);for(const [hx,hy,w] of heads){const g=x.createRadialGradient(hx-3,hy-3,1,hx,hy,w*0.6);
@@ -773,7 +773,8 @@ function addRider(name,photo,silent,icon='rosquinha'){
     d.g.position.set(3.5,-1,s.z);d.tag.position.y=1.75+(i%3)*.5;riders.push(rd);saveRiders();updateRiderChip();
     if(!silent){toast(`${gi(icon)} <b>${escapeHtml(name)}</b> subiu no elefante! 🐘🎉`,2.8,'ride');giftSfx('ride');}
   });};
-  img.onerror=()=>{img.src=makeAvatar(name);};
+  const tries=Array.isArray(photo)?photo.slice(1):[];if(Array.isArray(photo))photo=photo[0];
+  img.onerror=()=>{img.src=tries.length?tries.shift():makeAvatar(name);};
   if(photo&&!photo.startsWith('data:'))img.crossOrigin='anonymous';
   img.src=photo||makeAvatar(name);
 }
@@ -1082,13 +1083,13 @@ function novoEvento(tipo,nome,fotoUrl){
     const lp=lastPainted.get(nome);if(lp&&performance.now()-lp<120000)return;lastPainted.set(nome,performance.now());
     if(queue.filter(j=>j.kind==='comment').length>=30)return;}
   else if(queue.filter(j=>j.name===nome&&j.kind===kind).length>=2)return;
-  const job={name:nome,kind,photo:fotoUrl||makeAvatar(nome),ready:false,n:jobN++};
+  const job={name:nome,kind,photo:(Array.isArray(fotoUrl)?fotoUrl[0]:fotoUrl)||makeAvatar(nome),ready:false,n:jobN++};
   queue.push(job);renderQueue();
   if(kind==='comment')blip();else{giftSfx(kind);toast(kind==='rose'?`${gi('rosa')} <b>${escapeHtml(nome)}</b> mandou uma rosa!`:`${gi('coracao')} <b>${escapeHtml(nome)}</b> mandou um coração!`,2.2,kind==='rose'?'gold':'pink');}
-  const img=new Image();
+  const img=new Image();const tries=Array.isArray(fotoUrl)?fotoUrl.slice(1):[];
   img.onload=()=>{job.img=img;fontReady.then(()=>{job.ready=true;});};
-  img.onerror=()=>{if(job.photo.startsWith('data:'))return;job.photo=makeAvatar(nome);img.src=job.photo;};
-  if(fotoUrl&&!fotoUrl.startsWith('data:'))img.crossOrigin='anonymous';
+  img.onerror=()=>{if(job.photo.startsWith('data:'))return;job.photo=tries.length?tries.shift():makeAvatar(nome);img.src=job.photo;};
+  if(job.photo&&!job.photo.startsWith('data:'))img.crossOrigin='anonymous';
   img.src=job.photo;
 }
 window.novoEvento=novoEvento;
@@ -1436,7 +1437,7 @@ function drawChatIcon(x,cx,cy,s){x.save();x.translate(cx,cy);x.scale(s/100,s/100
   x.fillStyle='#ffffff';x.strokeStyle='#2aa7e8';x.lineWidth=8;x.beginPath();x.ellipse(0,-6,44,36,0,0,Math.PI*2);x.fill();x.stroke();
   x.beginPath();x.moveTo(-20,24);x.lineTo(-34,46);x.lineTo(2,28);x.closePath();x.fillStyle='#ffffff';x.fill();x.stroke();
   x.fillStyle='#2aa7e8';for(const dx of[-18,0,18]){x.beginPath();x.arc(dx,-6,6,0,Math.PI*2);x.fill();}x.restore();}
-const LEG_ROWS=[{icons:['chat'],text:'Comente = pinto você no caminho',color:'#0d4f8b'},
+const LEG_ROWS=[{icons:['chat'],text:'Comente para pintar sua foto',color:'#0d4f8b'},
   {icons:['rosa'],text:'Rosa = moldura de ouro + aplausos',color:'#9a6200'},
   {icons:['coracao'],text:'Coração = pintura GIGANTE',color:'#b0105f'},
   {icons:['rosquinha','capivara'],text:'= sobe no elefante!',color:'#8a3e06'}];
@@ -1578,7 +1579,7 @@ function setupElephantModel(g){
   const r=Math.max(.6,tw*.95);
   const bl=new THREE.Mesh(new THREE.CylinderGeometry(r,r,blen,24,1,true,-1.05,2.1),new THREE.MeshStandardMaterial({map:blanketTex(),roughness:.85,side:THREE.DoubleSide}));
   bl.rotation.x=Math.PI/2;bl.rotation.y=Math.PI;bl.position.set(0,yTop-r+.06,midZ);bl.castShadow=true;
-  const blWrap=new THREE.Group();blWrap.add(bl);E.body.add(blWrap);spine.attach(blWrap);
+  bl.geometry.dispose();
   riders.forEach((rd,i)=>{saddle.add(rd.g);rd.seat=seatFor(i);});
   E.riderParent=saddle;
   MODEL.el={mixer,actions,cur:null,sk,holder};

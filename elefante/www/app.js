@@ -94,7 +94,10 @@
   // ---------- eventos da live -> jogo ----------
   // niveis que o servidor manda: 1 rosa, 2 team bracelet, 3 finger heart, 4 tiny diny, 5 capivara ou rosquinha (30 moedas)
   const PRESENTE = { 1: 'rosa', 2: 'rosa', 3: 'coracao', 4: 'coracao', 5: 'rosquinha' };
-  const fotoDe = f => f ? window.SERVIDOR + '/foto?u=' + encodeURIComponent(f) : null;
+  // foto em alta resolucao: o TikTok manda a miniatura (100x100); pedimos a versao 720x720 e, se nao existir, usamos a original
+  const grande = f => String(f).replace(/(cropcenter|resize|crop)(:|_)\d{2,4}(:|x|_)\d{2,4}/g, '$1$2720$3720').replace(/([~_])(c5_)?100x100/g, '$1$2720x720').replace(/:100:100/g, ':720:720');
+  const proxy = f => window.SERVIDOR + '/foto?u=' + encodeURIComponent(f);
+  const fotoDe = f => { if (!f) return null; const g = grande(f); return g !== f ? [proxy(g), proxy(f)] : proxy(f); };
   function aoEvento(d) {
     const nome = String(d.nome || d.id || '').trim();
     if (!nome || !window.novoEvento) return;
