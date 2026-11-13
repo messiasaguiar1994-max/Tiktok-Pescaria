@@ -1,7 +1,7 @@
 // Pescaria ao Vivo - tela inicial do aplicativo (servidor, usuario, conectar, jogar)
 (function () {
   // Endereco do servidor na internet. Pode ser trocado dentro do app em "Configuracoes".
-  const SERVIDOR_PADRAO = '';
+  const SERVIDOR_PADRAO = 'https://tiktok-pescaria.onrender.com';
   window.AUDIO_LISTA = 'audio/lista.json';
 
   const guarda = {
