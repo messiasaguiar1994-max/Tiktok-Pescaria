@@ -208,8 +208,9 @@
     const v = window.VOL_MUSICA || .22;
     try { g.gain.setTargetAtTime(sim ? v * 0.3 : v, AC.currentTime, sim ? 0.15 : 0.6); } catch (e) {}
   }
+  let inicioFala = 0;
   async function falar(f) {
-    ocupado = true;
+    ocupado = true; inicioFala = agora();
     let texto = '', audio = '';
     const srv = window.SERVIDOR, usu = (localStorage.getItem('pesc_usuario') || 'teste');
     if (srv && window.apresentadorIA !== false) {
@@ -256,7 +257,7 @@
     const menu = document.getElementById('menu'); if (menu && !menu.classList.contains('fora')) { ultimaFala = Math.max(ultimaFala, agora() - 25000); return; } // so fala com o jogo na tela
     const t = agora();
     for (let i = fila.length - 1; i >= 0; i--) if (t - fila[i].t > (fila[i].prio >= 5 ? 40000 : 20000)) fila.splice(i, 1);
-    if (t - ultimaFala < 1800) return;
+    if (t - ultimaFala < 1800 || t - inicioFala < 10000) return; // no maximo 1 fala a cada 10 segundos (economiza credito)
     if (fila.length) { fila.sort((a, b) => b.prio - a.prio || b.t - a.t); return falar(fila.shift()); }
     if (t - ultimaFala > 20000) falar({ tipo: 'parado', evento: ASSUNTOS[nAssunto++ % ASSUNTOS.length](), prio: 1, nomes: [] });
   }, 600);

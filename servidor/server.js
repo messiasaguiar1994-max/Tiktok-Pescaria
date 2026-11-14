@@ -176,7 +176,7 @@ async function apresentador(req, res) {
   let q; try { q = await lerCorpo(req); } catch (e) { return json(res, { erro: 'pedido invalido' }, 400); }
   if (!OPENAI) return json(res, { erro: 'sem_chave' }, 503);
   const sala = limpaUsuario(q.usuario) || 'teste', agora = Date.now();
-  if (!q.teste && agora - (ultimoPorSala.get(sala) || 0) < 3500) return json(res, { erro: 'devagar' }, 429); // controla o gasto
+  if (!q.teste && agora - (ultimoPorSala.get(sala) || 0) < 9000) return json(res, { erro: 'devagar' }, 429); // controla o gasto: no maximo 1 fala a cada ~10s
   ultimoPorSala.set(sala, agora);
   const evento = String(q.evento || '').slice(0, 400), contexto = String(q.contexto || '').slice(0, 600);
   try {
