@@ -22,6 +22,9 @@
   #legend.off{opacity:0}
   #queue{top:58px;left:8px;background:rgba(13,79,139,.84);border-radius:14px;padding:7px 9px;min-width:110px;max-width:34vw;
     color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+  #queue.turbo{box-shadow:0 0 0 3px #ffd84d,0 0 22px #ffb300;animation:tb .5s ease-in-out infinite alternate}
+  #queue.turbo h3::after{content:' ⚡⚡';}
+  @keyframes tb{to{box-shadow:0 0 0 3px #ffd84d,0 0 34px #ff8a00}}
   #queue h3{font-family:'Lilita One';font-weight:400;font-size:14px;margin-bottom:3px;color:#bfe9ff}
   #queue .row{display:flex;align-items:center;gap:5px;font-size:12px;margin:3px 0;white-space:nowrap;overflow:hidden}
   #queue .row img{width:20px;height:20px;border-radius:50%;border:2px solid #fff;object-fit:cover;flex:none}
@@ -1207,7 +1210,7 @@ function tryPickJob(){
 function chooseQuickSpot(big){
   const now=clock.elapsedTime;let best=null,bs=1e9;
   for(const b of baobabs){const d0=Math.hypot(b.x-el.x,b.z-el.z);if(d0>22)continue;
-    if(window.__forceGround)break;
+    if(window.__forceGround||turboF>1.3)break;
     for(const f of b.faces){const sa=f.phi+.5;const sx=b.x+Math.sin(sa)*(BAO_R0+6.2),sz=b.z+Math.cos(sa)*(BAO_R0+6.2);
       if(inZone(sx,sz,.5))continue;const d=Math.hypot(sx-el.x,sz-el.z)+(now-f.usedAt<90?14:0);if(d<bs){bs=d;best={b,f,sx,sz};}}}
   if(best&&bs<20){best.f.usedAt=now;const p=getTreePanel(best.b,best.f,big);return {panel:p,stand:{x:best.sx,z:best.sz}};}
@@ -1234,17 +1237,17 @@ function startJob(job){
     if(el.panel===cagePanel){
       if(el.inCage)setPath([{x:s.x,z:s.z}],3,arriveAim);
       else setPath(planPath(el.x,el.z,GATE_OUT.x,GATE_OUT.z).concat([{x:CAGE.x-CAGE.half+2,z:CAGE.z},{x:s.x,z:s.z}]),9,arriveAim);
-    }else setPath(planPath(el.x,el.z,s.x,s.z),9,arriveAim);
+    }else setPath(planPath(el.x,el.z,s.x,s.z),9*Math.min(turboF,1.6),arriveAim);
     return;
   }
   const spot=chooseQuickSpot(job.kind==='rose');el.panel=spot.panel;
   if(job.kind==='rose')toast(`${gi('rosa')} ➜ 🖼️ <b>${escapeHtml(job.name)}</b>`,2.4,'gold');
   if(spot.yaw!=null){el.quickYaw=spot.yaw;arriveAim();}
-  else{el.quickYaw=null;setPath(planPath(el.x,el.z,spot.stand.x,spot.stand.z),4.5,arriveAim);}
+  else{el.quickYaw=null;setPath(planPath(el.x,el.z,spot.stand.x,spot.stand.z),4.5*turboF,arriveAim);}
 }
 function arriveAim(){
   el.state='aim';const P=el.panel;
-  el.timer=P.kind==='ground'||P.kind==='tree'?.45:1;
+  el.timer=(P.kind==='ground'||P.kind==='tree'?.45:1)/turboF;
   el.faceYaw=P.kind==='ground'?el.quickYaw:P.kind==='tree'?Math.atan2(P.center.x-el.x,P.center.z-el.z):Math.atan2(-P.normal.x,-P.normal.z);
   if(P===cagePanel){el.inCage=true;growl();}
   if(P.kind==='giant'||P.kind==='cage')trumpet();
@@ -1308,7 +1311,7 @@ function brain(dt,time){
       tp=P.kind==='ground'?{pitch:.15,base:-1.15,curl:.02,tip:-.1,ear:.4,headYaw:0}:P.kind==='tree'?{pitch:-.05,base:-1.6,curl:.03,tip:-.1,ear:.4,headYaw:0}:{pitch:-.3,base:-2.05,curl:.05,tip:-.1,ear:.4,headYaw:0};break;}
     case 'spray':{
       el.yaw=lerpAngle(el.yaw,el.faceYaw,Math.min(1,dt*4));
-      const P=el.panel;el.sprayT+=dt;const s=clamp(el.sprayT/P.spray,0,1);
+      const P=el.panel;el.sprayT+=dt*turboF;const s=clamp(el.sprayT/P.spray,0,1);
       const zig=P.kind==='giant'||P.kind==='cage'?5:3;
       sprayTarget.copy(P.center).addScaledVector(P.right,Math.sin(s*Math.PI*zig)*P.w*.36).addScaledVector(P.up,P.h*.32-s*P.h*.3);
       sprayAt(sprayTarget,Math.round(P.rate*dt)+1,el.job.kind,P);
@@ -1337,20 +1340,20 @@ function startAdventure(forced){
   if(inZone(el.x+fx*8,el.z+fz*8,1)&&type!=='buck'&&type!=='dance'){el.advT=4;return;}
   el.adv={type,t:0,fx,fz,rx:-fz,rz:fx,stage:0};el.state='adv';el.advT=rand(30,50);
   const a=el.adv;
-  if(type==='snake'&&MODEL.cobraProto){snake={g:MODEL.cobraProto.clone(),model:true,t:0,x:el.x+fx*7,z:el.z+fz*7,dirx:0,dirz:0};snake.g.rotation.y=Math.atan2(-fx,-fz)+rand(-.6,.6);scene.add(snake.g);toast('🐍 Opa... o que é aquilo no caminho?',2,'adv');}
+  if(type==='snake'&&MODEL.cobraProto){snake={g:MODEL.cobraProto.clone(),model:true,t:0,x:el.x+fx*7,z:el.z+fz*7,dirx:0,dirz:0};snake.g.rotation.y=Math.atan2(-fx,-fz)+rand(-.6,.6);scene.add(snake.g);}
   else if(type==='snake'){snake=makeSnake();snake.x=el.x+fx*7-a.rx*-6;snake.z=el.z+fz*7-a.rz*-6;snake.x=el.x+fx*7+a.rx*6;snake.z=el.z+fz*7+a.rz*6;
-    snake.dirx=-a.rx;snake.dirz=-a.rz;snake.t=0;scene.add(snake.g);toast('🐍 Opa... o que é aquilo no caminho?',2,'adv');}
-  if(type==='butterfly'){butterfly=makeButterfly();butterfly.t=0;scene.add(butterfly.g);toast('🦋 Uma borboleta! O elefante ficou curioso...',2.4,'adv');}
-  if(type==='melon'){melon=makeMelon();melon.position.set(el.x+fx*6.5,groundH(el.x+fx*6.5,el.z+fz*6.5)+.55,el.z+fz*6.5);scene.add(melon);toast('🍉 O elefante achou uma melancia!',2.2,'adv');}
-  if(type==='dance'){toast('💃 Hora da dança na savana! 🎶',2.4,'adv');plim();}
-  if(type==='buck'){toast('🐘 Ele quer derrubar a galera da garupa! 😂',2.6,'adv');trumpet();}
+    snake.dirx=-a.rx;snake.dirz=-a.rz;snake.t=0;scene.add(snake.g);}
+  if(type==='butterfly'){butterfly=makeButterfly();butterfly.t=0;scene.add(butterfly.g);}
+  if(type==='melon'){melon=makeMelon();melon.position.set(el.x+fx*6.5,groundH(el.x+fx*6.5,el.z+fz*6.5)+.55,el.z+fz*6.5);scene.add(melon);}
+  if(type==='dance'){plim();}
+  if(type==='buck'){trumpet();}
 }
 function endAdventure(){el.adv=null;el.fx.rx=el.fx.rz=el.fx.y=0;if(!tryPickJob())resumeWander();}
 function updateAdventure(dt,time){
   const a=el.adv;a.t+=dt;const t=a.t;el.walk=Math.max(0,el.walk-dt*3);let tp={pitch:0,base:-.4,curl:.1,tip:-.3,ear:.3,headYaw:0};
   if(a.type==='snake'){
     if(t<.9){tp={pitch:.25,base:-.5,curl:.1,tip:-.3,ear:.3,headYaw:0};}
-    else if(t<2.4){if(a.stage===0){a.stage=1;trumpet();hiss();riderJolt=1.2;toast('😱 UMA COBRA! Que susto!',2.2,'adv');}
+    else if(t<2.4){if(a.stage===0){a.stage=1;trumpet();hiss();riderJolt=1.2;}
       const k=Math.sin(clamp((t-.9)/1.5,0,1)*Math.PI);el.fx.rx=-.38*k;el.fx.y=.7*k;tp={pitch:-.35,base:-2.6,curl:.25,tip:.3,ear:1,headYaw:0};}
     else if(t<4.4){el.fx.rx=0;el.fx.y=0;el.fx.rz=Math.sin(t*35)*.035;el.x-=a.fx*dt*1.8;el.z-=a.fz*dt*1.8;el.phase-=dt*5;el.walk=.6;
       tp={pitch:.1,base:-1.2,curl:.2,tip:.2,ear:1,headYaw:0};}
@@ -1362,7 +1365,7 @@ function updateAdventure(dt,time){
     el.fx.rz=Math.sin(t*8)*.32*env;el.fx.rx=Math.sin(t*6)*.14*env;el.fx.y=Math.abs(Math.sin(t*8))*.45*env;
     if(Math.floor(t*8/Math.PI)!==a.stage&&t<5){a.stage=Math.floor(t*8/Math.PI);boing();riderJolt=Math.max(riderJolt,.6);}
     tp={pitch:-.15,base:-1.8+Math.sin(t*8)*.6,curl:.2,tip:.2,ear:1,headYaw:Math.sin(t*8)*.3};
-    if(t>5.2&&!a.done){a.done=true;toast('😂 Ninguém caiu! A galera segurou firme!',2.4,'adv');applause(2);}
+    if(t>5.2&&!a.done){a.done=true;applause(2);}
     if(t>6.5)endAdventure();
   }
   else if(a.type==='dance'){
@@ -1380,7 +1383,7 @@ function updateAdventure(dt,time){
     const want=Math.atan2(butterfly.g.position.x-el.x,butterfly.g.position.z-el.z)-el.yaw;
     if(t<4.4)tp={pitch:-.35,base:-1.9+Math.sin(t*2.2)*.3,curl:.08,tip:-.1,ear:.5,headYaw:clamp(angDiff(0,want),-.7,.7)};
     else if(t<4.9){tp={pitch:-.5,base:-2.4,curl:.15,tip:.2,ear:1,headYaw:0};}
-    else{if(a.stage===0){a.stage=1;sneezeSfx();toast('🤧 ATCHIM!!!',1.8,'adv');riderJolt=1;el.fx.rx=.2;
+    else{if(a.stage===0){a.stage=1;sneezeSfx();riderJolt=1;el.fx.rx=.2;
         E.tip.getWorldPosition(tipV);for(let k=0;k<90;k++)emit(tipV.x,tipV.y,tipV.z,a.fx*rand(5,10)+rand(-2,2),rand(-1,3),a.fz*rand(5,10)+rand(-2,2),1.5,3,WATER,.45);}
       el.fx.rx=lerp(el.fx.rx,0,dt*4);tp={pitch:.2,base:-.9,curl:.1,tip:-.3,ear:.8,headYaw:0};}
     if(t>7){scene.remove(butterfly.g);butterfly=null;endAdventure();}
@@ -1390,7 +1393,7 @@ function updateAdventure(dt,time){
     if(a.stage===0){if(moveToward(mx-a.fx*3.4,mz-a.fz*3.4,2.2,dt)){a.stage=1;a.t1=t;}}
     else if(a.stage===1){el.yaw=lerpAngle(el.yaw,Math.atan2(mx-el.x,mz-el.z),dt*4);tp={pitch:.45,base:-.35,curl:.02,tip:-.5,ear:.3,headYaw:0};if(t-a.t1>1.3){a.stage=2;a.t1=t;}}
     else if(a.stage===2){tp={pitch:-.1,base:-2.3,curl:.36,tip:.6,ear:.5,headYaw:0};E.tip.getWorldPosition(tipV);melon.position.lerp(tipV,dt*6);
-      if(t-a.t1>1.4){a.stage=3;a.t1=t;crunch();E.head.getWorldPosition(tmpV);heartsAt(tmpV.add(UP),30);toast('🍉 Nham nham! Que delícia!',2,'adv');}}
+      if(t-a.t1>1.4){a.stage=3;a.t1=t;crunch();E.head.getWorldPosition(tmpV);heartsAt(tmpV.add(UP),30);}}
     else{const k=clamp((t-a.t1)/.5,0,1);melon.scale.setScalar(Math.max(.001,1-k));tp={pitch:-.1,base:-.6,curl:.1,tip:-.3,ear:.9,headYaw:Math.sin(t*4)*.2};el.fx.y=Math.abs(Math.sin(t*7))*.2;
       if(t-a.t1>1.8){scene.remove(melon);melon=null;el.fx.y=0;endAdventure();}}
     if(t>14){if(melon){scene.remove(melon);melon=null;}endAdventure();}
@@ -1743,7 +1746,25 @@ function normStatic(obj,{height,length,width,center=true}){
   g.userData.h=b2.max.y-b2.min.y;return g;}
 MODEL.chars=[];
 function addCharacter(obj){linearMaps(obj);const p=normStatic(obj,{height:1.7,center:false});MODEL.chars.push(p);rebuildRiders();}
-function setupCharacter(g){addCharacter(g.scene);}
+// close the raccoon's yawn: squeeze the lower jaw up, then cover what is left with a little muzzle and a smile line
+function closeRaccoonMouth(root,P){
+  root.updateMatrixWorld(true);const v=new THREE.Vector3();let maxZ=-9;
+  root.traverse(m=>{if(!m.isMesh)return;const g=m.geometry;const p=g.attributes.position;const inv=new THREE.Matrix4().copy(m.matrixWorld).invert();
+    for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i).applyMatrix4(m.matrixWorld);
+      if(v.z<P.zMin||Math.abs(v.x-P.cx)>P.halfW||v.y>P.top||v.y<P.bottom-.05)continue;
+      const wx=1-Math.max(0,(Math.abs(v.x-P.cx)-P.halfW*.6)/(P.halfW*.4));
+      const wy=Math.min(1,Math.max(0,(v.y-(P.bottom-.05))/.05));
+      const ny=P.top-(P.top-v.y)*P.k;v.y+=(ny-v.y)*wx*wy;
+      if(Math.abs(v.x-P.cx)<P.halfW*.5&&v.y>P.top-.06)maxZ=Math.max(maxZ,v.z);
+      v.applyMatrix4(inv);p.setXYZ(i,v.x,v.y,v.z);}
+    p.needsUpdate=true;g.computeVertexNormals();});
+  const mat=new THREE.MeshStandardMaterial({color:P.color,roughness:.95});
+  const muz=new THREE.Mesh(new THREE.SphereGeometry(1,20,14),mat);muz.scale.set(P.mw,P.mh,P.md);muz.position.set(P.cx,P.my,maxZ-P.md*.55);root.add(muz);
+  const line=new THREE.Mesh(new THREE.TorusGeometry(P.mw*.45,P.mw*.06,6,16,Math.PI*.8),new THREE.MeshStandardMaterial({color:0x2a1d18,roughness:.6}));
+  line.rotation.z=Math.PI+Math.PI*.1;line.position.set(P.cx,P.my+P.mh*.15,maxZ+P.md*.38);root.add(line);
+}
+
+function setupCharacter(g,name){if(name==='p_raccoon'){try{closeRaccoonMouth(g.scene,{zMin:.05,cx:.054,halfW:.075,top:.258,bottom:.135,k:.22,color:0x807366,mw:.046,mh:.03,md:.026,my:.238});}catch(e){console.warn(e);}}addCharacter(g.scene);}
 function setupBunnies(g){
   const s=g.scene;s.updateMatrixWorld(true);const groups={a:new THREE.Group(),b:new THREE.Group()};const ms=[];s.traverse(m=>{if(m.isMesh)ms.push(m);});
   ms.forEach(m=>{const c=m.clone();c.applyMatrix4(m.matrixWorld);(/bunny2/i.test(m.name)?groups.b:groups.a).add(c);});
@@ -1814,7 +1835,7 @@ function loadModels(){
   get('elefante',setupElephantModel);get('leao2',setupLion2Model);
   if(THREE.SkeletonUtils){get('girafa',setupGiraffeModel);get('zebra2',setupZebraModel);get('borboleta',setupButterflyModel);}
   get('hipo',setupHippoModel);get('cobra',setupCobraModel);get('melancia',setupMelonModel);
-  ['p_doll','p_alien','p_raccoon','p_robot','p_mummy'].forEach(n=>get(n,setupCharacter));get('p_bunny',setupBunnies);
+  ['p_doll','p_alien','p_raccoon','p_robot','p_mummy'].forEach(n=>get(n,g=>setupCharacter(g,n)));get('p_bunny',setupBunnies);
 }
 
 // ======================================================= VARIATION LAYER (no two frames alike, no fixed texts)
@@ -1939,6 +1960,17 @@ function updateVariation(dt,time){
     for(let k=0;k<5;k++)emit(tipV.x,tipV.y,tipV.z,fx*rand(1,3)+rand(-1.2,1.2),rand(5,8),fz*rand(1,3)+rand(-1.2,1.2),2,3,WATER,.45);}
 }
 
+
+// ---------- SUPER SPEED: when many people are waiting, the elephant hurries (runs, sprays and paints faster)
+let turboF=1,turboOn=false;
+function updateTurbo(dt){
+  const waiting=queue.filter(j=>j.ready).length;
+  if(!turboOn&&waiting>=5)turboOn=true;else if(turboOn&&waiting<=1)turboOn=false;
+  turboF=lerp(turboF,turboOn?2.4:1,Math.min(1,dt*2));
+  document.getElementById('queue').classList.toggle('turbo',turboOn);
+  if(turboOn&&el.walk>.3&&Math.random()<.8){const bx=el.x-Math.sin(el.yaw)*2.5,bz=el.z-Math.cos(el.yaw)*2.5;
+    emit(bx+rand(-1,1),groundH(bx,bz)+rand(.2,1.2),bz+rand(-1,1),rand(-1,1),rand(.5,2),rand(-1,1),rand(.5,.9),2,Math.random()<.6?[1,.85,.3]:[1,1,.8],rand(.3,.55));}
+}
 // ======================================================= CAMERA
 const camPos=new THREE.Vector3(6,9,26),camLook=new THREE.Vector3(0,3,0),wantPos=new THREE.Vector3(),wantLook=new THREE.Vector3();
 let camYaw=Math.PI,camSide=1,camSideT=25;
@@ -1999,7 +2031,7 @@ const clock=new THREE.Clock();
 function loop(){
   const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;
   brain(dt,time);animateElephant(dt,time);animateRiders(dt,time);animateProps(dt,time);animateAnimals(dt,time);animateAnimalModels(dt,time);updateParticles(dt);
-  revealing.forEach(p=>updateReveal(p,dt));updateDrying(dt);
+  updateTurbo(dt);revealing.forEach(p=>updateReveal(p,dt*turboF));updateDrying(dt);
   updateStream(dt,el.state==='spray'&&el.job,el.job&&el.job.kind,el.state==='spray'?sprayTarget:null);
   clouds.forEach(c=>{c.position.x+=dt*1.5;if(c.position.x>260)c.position.x=-260;});
   birds.forEach(b=>{const u=b.userData;const a=time*u.sp+u.ph;b.position.set(u.cx+Math.cos(a)*u.rad,u.h+Math.sin(time*.5+u.ph)*2,u.cz+Math.sin(a)*u.rad);
