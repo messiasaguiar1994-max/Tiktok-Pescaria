@@ -92,6 +92,7 @@
 <script>window.APP_MODE=true;</script>
 <script src="lib/three.min.js"></script>
 <script src="lib/GLTFLoader.js"></script>
+<script src="lib/SkeletonUtils.js"></script>
 <script>
 (function(){
 'use strict';
@@ -1653,6 +1654,48 @@ function setupLionModel(g){
   lion.root.children.forEach(c=>c.visible=false);lion.root.add(grp);
   MODEL.lion={U,grp,q:new THREE.Quaternion(),e:new THREE.Euler(0,0,0,'YXZ')};
 }
+// ---------- giraffes and zebras from the user's models
+function prepAnimal(g,height){
+  // measure once in idle pose
+  const tmp=THREE.SkeletonUtils.clone(g.scene);const box=new THREE.Box3();tmp.updateMatrixWorld(true);
+  let found=false;tmp.traverse(m=>{if(m.isSkinnedMesh){found=true;const b=skinnedBox(m,null);box.union(b);}});
+  if(!found)box.setFromObject(tmp);
+  const k=height/(box.max.y-box.min.y);
+  return {g,k,off:new THREE.Vector3(-(box.min.x+box.max.x)/2,-box.min.y,-(box.min.z+box.max.z)/2)};
+}
+function animalInstance(P,a,scale){
+  const o=THREE.SkeletonUtils.clone(P.g.scene);
+  o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.frustumCulled=false;if(m.material){m.material=m.material.clone();m.material.metalness=0;
+    if(m.material.map){m.material.map.encoding=THREE.LinearEncoding;}m.material.needsUpdate=true;}}});
+  const holder=new THREE.Group();holder.add(o);holder.scale.setScalar(P.k*scale);holder.position.copy(P.off).multiplyScalar(P.k*scale);
+  a.root.children.forEach(c=>c.visible=false);a.root.add(holder);
+  const mixer=new THREE.AnimationMixer(o);const acts={};P.g.animations.forEach(c=>acts[c.name]=mixer.clipAction(c));
+  const bones={};o.traverse(n=>{if(n.isBone)bones[n.name]=n;});
+  a.M={mixer,acts,cur:null,bones,phase:Math.random()*10};
+}
+function animalClip(a,name,opt={}){
+  const M=a.M;const act=M.acts[name];if(!act||M.cur===name){if(act&&opt.ts!=null)act.setEffectiveTimeScale(opt.ts);return;}
+  const prev=M.cur&&M.acts[M.cur];act.reset();act.setLoop(opt.once?THREE.LoopOnce:THREE.LoopRepeat);act.clampWhenFinished=!!opt.once;
+  act.setEffectiveTimeScale(opt.ts||1);act.setEffectiveWeight(1);act.play();
+  if(!prev)act.time=Math.random()*act.getClip().duration;
+  if(prev)prev.crossFadeTo(act,.5,false);M.cur=name;
+}
+function setupGiraffeModel(g){const P=prepAnimal(g,8.6);giraffes.forEach(a=>animalInstance(P,a,a.root.scale.x));MODEL.giraffe=true;}
+function setupZebraModel(g){const P=prepAnimal(g,3.2);zebras.forEach(a=>animalInstance(P,a,a.root.scale.x));MODEL.zebra=true;}
+function animateAnimalModels(dt,time){
+  if(MODEL.giraffe)giraffes.forEach(a=>{if(!a.M)return;
+    if(a.eating)animalClip(a,'Anim_GiraffeEatStart',{once:true});
+    else animalClip(a,a.walk>.3?'Anim_GiraffeWalkForward':'Anim_GiraffeIdle',{ts:.8});
+    a.M.mixer.update(dt);});
+  if(MODEL.zebra)zebras.forEach(z=>{if(!z.M)return;
+    animalClip(z,z.walk>.3?'Armature|Armature|WalkSlow':'Armature|Armature|Idle',{ts:z.walk>.3?1.1:1});
+    z.M.mixer.update(dt);
+    // grazing: bend the neck down to the grass
+    z.M.graze=lerp(z.M.graze||0,z.graze&&z.walk<.3?1:0,Math.min(1,dt*2));
+    const gz=z.M.graze;if(gz>.01){const b=z.M.bones;const w=Math.sin(time*3+z.M.phase)*.06;
+      if(b.Shoulders)b.Shoulders.rotation.x+=.75*gz;if(b.Neck)b.Neck.rotation.x+=(.85+w)*gz;if(b.Head)b.Head.rotation.x+=.3*gz;}});
+}
+
 function loadModels(){
   if(!THREE.GLTFLoader)return;const Ld=new THREE.GLTFLoader();
   // in the app the .glb files sit next to the game; on the web page they come packed inside .js files
@@ -1662,6 +1705,7 @@ function loadModels(){
     sc.onload=()=>{try{const s=atob(window.__GLB[name]);const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);delete window.__GLB[name];Ld.parse(u.buffer,'',ok,e=>console.warn(name,e));}catch(e){console.warn(name,e);}};
     document.head.appendChild(sc);};
   get('elefante',setupElephantModel);get('leao',setupLionModel);
+  if(THREE.SkeletonUtils){get('girafa',setupGiraffeModel);get('zebra',setupZebraModel);}
 }
 
 // ======================================================= CAMERA
@@ -1723,7 +1767,7 @@ function updateWhere(dt){whereT-=dt;if(whereT>0)return;whereT=.5;
 const clock=new THREE.Clock();
 function loop(){
   const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;
-  brain(dt,time);animateElephant(dt,time);animateRiders(dt,time);animateProps(dt,time);animateAnimals(dt,time);updateParticles(dt);
+  brain(dt,time);animateElephant(dt,time);animateRiders(dt,time);animateProps(dt,time);animateAnimals(dt,time);animateAnimalModels(dt,time);updateParticles(dt);
   revealing.forEach(p=>updateReveal(p,dt));updateDrying(dt);
   updateStream(dt,el.state==='spray'&&el.job,el.job&&el.job.kind,el.state==='spray'?sprayTarget:null);
   clouds.forEach(c=>{c.position.x+=dt*1.5;if(c.position.x>260)c.position.x=-260;});
