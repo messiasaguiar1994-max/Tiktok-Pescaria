@@ -187,6 +187,19 @@ async function apresentador(req, res) {
   } catch (e) { console.log('[apresentador] falhou:', e.message); return json(res, { erro: e.status === 401 ? 'chave_invalida' : e.status === 429 ? 'sem_credito' : 'falhou' }, 502); }
 }
 
+// teste rapido da IA (texto e voz), sem mostrar a chave
+let ultDiag = 0, diagCache = null;
+async function diagnostico(res) {
+  if (Date.now() - ultDiag < 30000 && diagCache) return json(res, diagCache);
+  ultDiag = Date.now();
+  const d = { chave: OPENAI ? 'configurada (' + OPENAI.slice(0, 8) + '...)' : 'FALTANDO', modelos_texto: MODELOS_TEXTO, modelo_voz: MODELO_VOZ, voz: VOZ, velocidade_aceita: velocidadeOk };
+  if (OPENAI) {
+    try { d.texto = await gerarTexto('Teste rapido: diga oi para a live.', 'teste'); d.texto_ok = true; } catch (e) { d.texto_ok = false; d.erro_texto = e.message; }
+    try { const a = await gerarVoz('Teste de voz.', VOZ); d.voz_ok = a.length > 100; d.voz_bytes = a.length; } catch (e) { d.voz_ok = false; d.erro_voz = e.message; }
+  }
+  diagCache = d; return json(res, d);
+}
+
 // ---------- rotas ----------
 http.createServer((req, res) => {
   let u; try { u = new URL(req.url, 'http://x'); } catch (e) { res.writeHead(400); return res.end(); }
@@ -194,6 +207,7 @@ http.createServer((req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
   if (r === '/' || r === '/status') return json(res, { ok: true, salas: [...salas.keys()].length, ia: !!OPENAI });
   if (r === '/apresentador' && req.method === 'POST') return apresentador(req, res);
+  if (r === '/diagnostico') return diagnostico(res);
   if (r === '/foto') return foto(res, u.searchParams.get('u') || '');
   if (r === '/eventos') {
     const usuario = limpaUsuario(u.searchParams.get('usuario'));
