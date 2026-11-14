@@ -8,7 +8,7 @@
 const http = require('http');
 
 const PORTA = process.env.PORT || 3000;
-const CURTIDAS = +process.env.CURTIDAS || 200; // curtidas para pescar um peixe pequeno
+const CURTIDAS = +process.env.CURTIDAS || 100; // curtidas para pescar um peixe pequeno
 const CHAVE_EULER = process.env.EULER_API_KEY || ''; // opcional: chave do eulerstream.com
 
 const nz = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -130,7 +130,7 @@ const VOZES = ['marin', 'cedar', 'ash', 'ballad', 'coral', 'echo', 'sage', 'vers
 const VELOCIDADE = +process.env.VELOCIDADE || 1.15;
 const JEITO_VOZ = process.env.JEITO_VOZ || 'Voz: brasileiro nativo, sotaque carioca/paulista natural, sem sotaque estrangeiro. Estilo: narrador de futebol misturado com animador de programa de auditorio. Ritmo: RAPIDO e corrido, sem pausas longas entre palavras, emendando as frases. Energia: alta, empolgada, sorridente, com exclamacoes de verdade. Entonacao: variada e expressiva, enfatizando nomes e o tipo de peixe.';
 const PERSONA = `Voce e o "Capitao Pescador", apresentador de uma live de pescaria no TikTok. Voce esta num barquinho dando voltas no lago.
-Como o jogo funciona: quem comenta qualquer coisa no chat senta num banco na beira do lago e vira um bichinho pescador. Cada 200 curtidas pesca um peixe pequeno. Presentes pescam peixes melhores: Rosa = peixe da rosa, Team Bracelet = peixe dourado, Finger Heart = peixe robo, Tiny Diny = baleia, Capybara = peixe misterioso surpresa. Quem pesca mais fica em primeiro no ranking. A cada 100 pontos o bichinho levanta do banco, da um mergulho comemorativo no lago, se sacode e volta a sentar.
+Como o jogo funciona: quem comenta qualquer coisa no chat senta num banco na beira do lago e vira um bichinho pescador. Cada 100 curtidas pesca um peixe pequeno. Presentes pescam peixes melhores: Rosa = peixe da rosa, Team Bracelet = peixe dourado, Finger Heart = peixe robo, Tiny Diny = baleia, Capybara = peixe misterioso surpresa. Quem pesca mais fica em primeiro no ranking. A cada 100 pontos o bichinho levanta do banco, da um mergulho comemorativo no lago, se sacode e volta a sentar.
 Regras da sua fala:
 - Portugues do Brasil, bem informal e animado, estilo narrador de futebol/apresentador de auditorio. Pode usar girias leves.
 - Fala CURTA, como um balao de tirinha: 1 ou 2 frases, no maximo 18 palavras no total. Nada de emojis, hashtags, listas ou aspas.
