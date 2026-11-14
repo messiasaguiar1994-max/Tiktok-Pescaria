@@ -30,6 +30,12 @@
   #queue .row img{width:20px;height:20px;border-radius:50%;border:2px solid #fff;object-fit:cover;flex:none}
   #queue .row span{overflow:hidden;text-overflow:ellipsis}
   #queue .empty{font-size:11px;opacity:.85}
+  #fixo{position:fixed;z-index:7;pointer-events:none;top:58px;right:8px;max-width:58vw;padding:7px 12px;border-radius:16px;
+    background:linear-gradient(135deg,rgba(255,255,255,.93),rgba(255,240,205,.93));color:#7a3d12;font-family:'Lilita One',sans-serif;
+    font-size:clamp(14px,4.3vw,19px);line-height:1.15;text-align:center;box-shadow:0 3px 0 #c9852b,0 6px 14px rgba(0,0,0,.25);
+    transform:rotate(-2deg);animation:fixoBob 4.6s ease-in-out infinite}
+  #fixo b{font-weight:400;color:#d6336c}
+  @keyframes fixoBob{0%,100%{transform:rotate(-2deg) translateY(0)}50%{transform:rotate(-.5deg) translateY(-3px)}}
   #toast{top:29%;left:50%;transform:translate(-50%,0) scale(.6);opacity:0;transition:all .35s cubic-bezier(.3,1.6,.5,1);
     background:#fff;border-radius:18px;padding:10px 18px;font-family:'Lilita One';font-size:clamp(17px,5vw,24px);color:#0d4f8b;
     box-shadow:0 6px 0 #0d4f8b,0 10px 24px rgba(0,0,0,.25);text-align:center;max-width:92%}
@@ -65,6 +71,7 @@
 <body>
 <div id="stage"></div>
 
+<div id="fixo">💬 Comente para <b>pintar sua foto</b> 🎨</div>
 <div class="hud" id="queue"><h3>🎨 Próximos</h3><div id="qlist"></div></div>
 <div class="hud" id="toast"></div>
 <div class="hud" id="chips"><div class="chip" id="riderChip" style="display:none"></div><div class="chip" id="where">📍 Savana</div><div class="chip" id="song" style="display:none">🎵</div></div>
@@ -1929,7 +1936,7 @@ const HUD_SETS=[
 let hudSet=0,hudOn=false,hudT=12;
 function updateHud(dt){if(el.job||el.inCage||el.adv){hudPanel.classList.remove('on');if(hudOn){hudOn=false;hudT=20;}return;}hudT-=dt;if(hudT>0)return;hudOn=!hudOn;
   if(hudOn){hudPanel.innerHTML=HUD_SETS[hudSet++%HUD_SETS.length]();hudPanel.style.setProperty('--tilt',rand(-5,-1.5).toFixed(1)+'deg');
-    hudPanel.style.top=(rand(105,150)|0)+'px';hudPanel.classList.add('on');hudT=10;}
+    hudPanel.style.top=(rand(130,165)|0)+'px';hudPanel.classList.add('on');hudT=10;}
   else{hudPanel.classList.remove('on');hudT=rand(60,85);}}
 
 // --- procedural noise overlay (1.5%) so every frame is different
