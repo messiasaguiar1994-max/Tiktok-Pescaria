@@ -152,6 +152,7 @@
     if (top && lider && top !== lider) poe('lider', top.name + ' passou ' + lider.name + ' e agora e o primeiro do ranking! Provoque o pessoal a reagir.', 9);
     if (top) lider = top;
   };
+  window.apresentadorBarco = p => { poe('barco', p.name + ' chegou a 500 pontos e SUBIU NO BARCO para pescar junto com voce, o capitao! De as boas-vindas a bordo com muita festa e desafie os outros a chegarem a 500.', 9, { nome: p.name }); };
   window.apresentadorMergulho = p => { poe('mergulho', p.name + ' chegou a ' + (p.mgN * 100) + ' pontos e vai dar um MERGULHO comemorativo no lago! Narre a comemoracao e desafie os outros a chegarem a 100 pontos tambem.', 8, { nome: p.name }); };
   window.onSentou = p => { poe('sentou', p.name + ' sentou no banco para pescar. De boas-vindas e diga como pescar (curtidas e presentes).', 4, { nome: p.name }); };
   window.apresentadorEvento = d => {
@@ -171,6 +172,7 @@
     switch (f.tipo) {
       case 'pesca': return pick(['OLHA ISSO! ' + n + ' fisgou um peixão! Que pescaria, meu povo!', 'É PEIXE! ' + n + ' tá on fire hoje, quem vai alcançar?', 'Segura que vem! ' + n + ' puxou mais um da água!']);
       case 'lider': { const t = [...P].sort((a, b) => b.pts - a.pts)[0]; return pick(['Ihhhh galera, ' + (t ? t.name : n) + ' tá em primeiro! Vocês vão deixar?', 'Mudou o ranking! ' + (t ? t.name : n) + ' assumiu a liderança, quem tem coragem de passar?']); }
+      case 'barco': return pick(['Bem-vindo a bordo, ' + n + '! Chegou nos 500 pontos e agora pesca comigo no barco!', 'Olha quem subiu no barco! ' + n + ', 500 pontos! Quem vai ser o próximo a bordo?']);
       case 'mergulho': return pick(['OLHA O MERGULHO! ' + n + ' bateu 100 pontos e pulou no lago! Quem é o próximo?', 'Que mergulho, ' + n + '! Chegou nos 100 pontos! Bora, galera, quem vai pular agora?']);
       case 'sentou': return pick(['Bem-vindo ao lago, ' + n + '! Manda curtidas e presentes pra pescar!', 'Senta aí, ' + n + '! Cada 100 curtidas é um peixe, e presente pesca peixe melhor!']);
       case 'chegou': return pick(['Chegou ' + n + '! Comenta qualquer coisa e senta pra pescar!', 'Fala, ' + n + '! O lago tá cheio de peixe, comenta qualquer coisa pra entrar!']);
@@ -235,6 +237,7 @@
     () => 'Conte uma piada curta de pescador ou uma "historia de pescador" exagerada e engracada.',
     () => 'Lembre que cada 100 curtidas vira um peixe pequeno e chame a galera para encher a tela de curtidas.',
     () => 'Conte que quem chega a 100 pontos ganha um mergulho comemorativo no lago, e que presentes fazem chegar la mais rapido.',
+    () => 'Conte que quem chega a 500 pontos sobe no seu barco e pesca junto com voce, o capitao. Desafie a galera.',
     () => P.length > 1 ? 'Faca um mini placar narrado dos primeiros do ranking, como narrador de futebol.' : 'Diga que o lago esta vazio e chame o pessoal para sentar nos bancos.',
     () => 'Comente o dia bonito no lago, o barco, os passaros, e chame quem acabou de chegar para participar.'
   ];

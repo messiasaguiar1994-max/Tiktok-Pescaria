@@ -6,6 +6,7 @@
   let ativo = null;               // mergulho acontecendo agora
   const fila = [];                // quem esta esperando para mergulhar
   window.MERGULHO = false;        // enquanto true, a fila de pescaria espera
+  window.MERG_FILA = fila;
 
   // ---------- efeitos: anel de respingo e gotinhas ----------
   const FX = [];
@@ -36,6 +37,7 @@
   // ---------- quem chega em 100, 200, 300... pontos ----------
   function confere(p) {
     const n = Math.floor(p.pts / PASSO);
+    if (p.barco !== undefined) { p.mgN = n; return; } // quem esta no barco nao mergulha
     if (n > (p.mgN || 0)) { p.mgN = n; if (!fila.includes(p) && ativo?.p !== p) fila.push(p); }
   }
   const pescaOrig = window.onPesca;
@@ -106,7 +108,7 @@
     try { quadroAntes && quadroAntes(dt, t); } catch (e) {}
     atualizaFX(dt, t);
     if (ativo) { if (!ativo.p.g.parent) { ativo = null; window.MERGULHO = false; } else anima(t); }
-    else if (!cur && fila.length) { const p = fila.shift(); if (p.g.parent) comeca(p); }
+    else if (!cur && fila.length && !window.PULO_BARCO) { const p = fila.shift(); if (p.g.parent) comeca(p); }
   };
 
   // para testar: no console, testeMergulho()
