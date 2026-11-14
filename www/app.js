@@ -50,6 +50,9 @@
       <div class="lin"><button id="salva">Salvar e testar</button></div>
       <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="apr" style="width:22px;height:22px"> Apresentador no barco (fala com o chat)</label>
       <div class="dica" id="aprst"></div>
+      <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="ia" style="width:22px;height:22px"> IA do apresentador ligada (gasta crédito da OpenAI)</label>
+      <div class="dica">Com a IA ligada, ele reage aos presentes e responde comentários, mas só quando a live está conectada. As explicações das legendas são frases prontas: a voz de cada uma é gravada uma vez só e guardada no celular (depois não gasta mais nada).</div>
+      <div class="lin"><button id="grava">🎙️ Gravar falas prontas</button><span id="gravast" class="dica" style="margin:0"></span></div>
       <label for="voz">Voz do apresentador</label>
       <select id="voz" style="width:100%;font-size:17px;padding:11px;border-radius:14px;border:1px solid #38557f;background:#0e2444;color:#fff">
         <optgroup label="Homem"><option value="cedar">Cedar (homem, recomendada)</option><option value="ash">Ash (homem)</option><option value="echo">Echo (homem)</option>
@@ -78,6 +81,14 @@
   $m('usu').value = guarda.ler('usuario', '') ? '@' + guarda.ler('usuario', '') : '';
   $m('srv').value = window.SERVIDOR;
   $m('apr').checked = guarda.ler('apresentador', '1') !== '0';
+  $m('ia').checked = guarda.ler('ia', '1') !== '0'; $m('ia').onchange = () => guarda.salvar('ia', $m('ia').checked ? '1' : '0');
+  $m('grava').onclick = async () => {
+    if (!window.gravarFalasProntas) return;
+    $m('grava').disabled = true;
+    const r = await gravarFalasProntas((f, n) => { $m('gravast').textContent = 'gravando ' + f + '/' + n + '...'; });
+    $m('gravast').textContent = r.erro ? 'não consegui gravar (' + r.erro + ')' : r.novas + ' novas gravadas, ' + r.total + ' prontas ✔';
+    $m('grava').disabled = false;
+  };
   $m('voz').value = guarda.ler('voz2', 'cedar'); $m('voz').onchange = () => { guarda.salvar('voz2', $m('voz').value); guarda.salvar('voz', $m('voz').value); };
   guarda.salvar('voz', $m('voz').value);
   $m('tvoz').onclick = () => {
@@ -132,7 +143,7 @@
     es.onmessage = ev => {
       let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
       if (d.tipo === 'status') {
-        estado(d.estado === 'conectado' ? 'ok' : d.estado === 'erro' ? 'ruim' : 'esp', d.msg || d.estado);
+        estado(d.estado === 'conectado' ? 'ok' : d.estado === 'erro' ? 'ruim' : 'esp', d.msg || d.estado); window.LIVE_CONECTADA = d.estado === 'conectado';
         if (d.msg) log(d.msg);
         return;
       }
@@ -147,7 +158,8 @@
   $m('con').onclick = conectar;
 
   // ---------- musicas do celular (guardadas no proprio aparelho) ----------
-  const banco = () => new Promise((ok, er) => { const r = indexedDB.open('pescaria', 1); r.onupgradeneeded = () => r.result.createObjectStore('musicas', { keyPath: 'nome' }); r.onsuccess = () => ok(r.result); r.onerror = () => er(r.error); });
+  let bancoAberto = null;
+  const banco = window.abreBanco = () => bancoAberto || (bancoAberto = new Promise((ok, er) => { const r = indexedDB.open('pescaria', 2); r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains('musicas')) db.createObjectStore('musicas', { keyPath: 'nome' }); if (!db.objectStoreNames.contains('vozes')) db.createObjectStore('vozes', { keyPath: 'k' }); }; r.onsuccess = () => ok(r.result); r.onerror = () => { bancoAberto = null; er(r.error); }; }));
   const todas = () => banco().then(db => new Promise(ok => { const q = db.transaction('musicas').objectStore('musicas').getAll(); q.onsuccess = () => ok(q.result || []); q.onerror = () => ok([]); })).catch(() => []);
   const urls = [];
   window.listaMusicas = () => todas().then(L => {

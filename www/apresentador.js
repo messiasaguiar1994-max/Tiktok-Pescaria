@@ -213,7 +213,8 @@
     ocupado = true; inicioFala = agora();
     let texto = '', audio = '';
     const srv = window.SERVIDOR, usu = (localStorage.getItem('pesc_usuario') || 'teste');
-    if (srv && window.apresentadorIA !== false) {
+    if (f.tipo === 'parado' && f.texto) { texto = f.texto; audio = await vozGuardada(texto, podeIA()) || ''; } // frase pronta: voz guardada
+    else if (srv && (f.teste || podeIA())) {
       try {
         const c = new AbortController(), tm = setTimeout(() => c.abort(), 12000);
         const r = await fetch(srv + '/apresentador', { method: 'POST', signal: c.signal, headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ usuario: usu, evento: f.evento, contexto: contexto(), vozNome: localStorage.getItem('pesc_voz') || '', teste: !!f.teste }) });
@@ -238,20 +239,53 @@
   // assuntos para animar a live quando ninguem esta fazendo nada
   let nAssunto = 0;
   const lider1 = () => [...P].sort((a, b) => b.pts - a.pts)[0];
-  // foco: apresentar as legendas/regras do jogo, uma por vez, em frase curta
-  const ASSUNTOS = [
-    () => 'Diga que e so comentar qualquer coisa no chat para entrar no jogo e sentar no lago.',
-    () => 'Diga que cada 100 curtidas pesca um peixinho de 1 ponto.',
-    () => 'Diga que a Rosa pesca o peixe da rosa, que vale 10 pontos.',
-    () => lider1() ? lider1().name + ' lidera com ' + lider1().pts + ' pontos. Provoque o lago para passar.' : 'Desafie o chat a ser o primeiro a pescar.',
-    () => 'Diga que o Team Bracelet pesca o peixe dourado, que vale 20 pontos.',
-    () => 'Diga que quem chega a 100 pontos pula na agua e da um mergulho.',
-    () => 'Diga que o Finger Heart pesca o peixe robo, que vale 50 pontos.',
-    () => 'Diga que quem chega a 200 pontos ganha um banco gigante, bem alto, acima de todo mundo.',
-    () => 'Diga que o Tiny Diny pesca a baleia, que vale 100 pontos.',
-    () => 'Diga que quem chega a 500 pontos pula na agua e vem pro barco pescar do seu lado.',
-    () => 'Diga que a Capybara pesca o peixe misterioso surpresa, que vale 300 pontos.'
+  // explicacoes das legendas: frases prontas (a voz de cada uma e gravada 1 vez e guardada no celular)
+  const FRASES = [
+    ['Comenta qualquer coisa no chat e senta aqui no lago pra pescar!', 'Quer pescar com a gente? É só comentar no chat!', 'Chat parado não pesca peixe! Comenta aí e entra no jogo!'],
+    ['Cada 100 curtidas é um peixinho de 1 ponto, bora curtir!', 'Enche a tela de curtida! Cem curtidas, um peixinho!'],
+    ['Mandou Rosa, pescou o peixe da rosa: 10 pontos!', 'Uma Rosa vale o peixe da rosa, 10 pontinhos!'],
+    ['Quem vai ser o rei do ranking hoje, hein?', 'O primeiro lugar tá aí pra quem quiser, ó!', 'Olha o ranking, galera! Quem vai tomar a liderança?'],
+    ['Team Bracelet pesca o peixe dourado: 20 pontos!', 'Quer o peixe dourado? Manda um Team Bracelet: 20 pontos!'],
+    ['Chegou nos 100 pontos? Pula na água e dá um mergulho!', 'Bateu 100 pontos, é mergulho no lago!'],
+    ['Finger Heart traz o peixe robô: 50 pontos de uma vez!', 'Um Finger Heart e lá vem o peixe robô, 50 pontos!'],
+    ['200 pontos ganha o banco gigante, lá no alto!', 'Chegou nos 200? Ganha o banco gigante, acima de todo mundo!'],
+    ['Tiny Diny pesca a baleia: 100 pontos!', 'Quer pescar uma baleia? Tiny Diny: 100 pontos!'],
+    ['Chegou nos 500? Pula na água e vem pescar no meu barco!', 'Com 500 pontos você vem pescar do meu lado aqui no barco!'],
+    ['A Capybara traz o peixe misterioso surpresa: 300 pontos!', 'Capybara é o peixe surpresa: 300 pontos!']
   ];
+  const vozAtual = () => localStorage.getItem('pesc_voz') || 'cedar';
+  const chaveVoz = t => vozAtual() + '|' + t;
+  const lerVoz = k => window.abreBanco ? abreBanco().then(db => new Promise(ok => { const q = db.transaction('vozes').objectStore('vozes').get(k); q.onsuccess = () => ok(q.result ? q.result.a : null); q.onerror = () => ok(null); })).catch(() => null) : Promise.resolve(null);
+  const salvaVoz = (k, a) => window.abreBanco ? abreBanco().then(db => new Promise(ok => { const tx = db.transaction('vozes', 'readwrite'); tx.objectStore('vozes').put({ k, a }); tx.oncomplete = ok; tx.onerror = ok; })).catch(() => {}) : Promise.resolve();
+  async function pedeVoz(texto) {
+    const c = new AbortController(), tm = setTimeout(() => c.abort(), 15000);
+    try {
+      const r = await fetch(window.SERVIDOR + '/voz', { method: 'POST', signal: c.signal, headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ texto, vozNome: vozAtual() }) });
+      const j = await r.json(); clearTimeout(tm); return j;
+    } catch (e) { clearTimeout(tm); return { erro: 'sem resposta do servidor' }; }
+  }
+  // voz de uma frase pronta: usa a guardada; se nao tiver, grava (so se a IA puder ser usada agora)
+  async function vozGuardada(texto, podeGravar) {
+    const k = chaveVoz(texto), a = await lerVoz(k); if (a) return a;
+    if (!podeGravar || !window.SERVIDOR) return null;
+    const j = await pedeVoz(texto); if (j.audio) { await salvaVoz(k, j.audio); return j.audio; }
+    if (j.erro === 'sem_chave' || j.erro === 'chave_invalida' || j.erro === 'sem_credito') window.apresentadorAviso && apresentadorAviso(j.erro);
+    return null;
+  }
+  window.gravarFalasProntas = async (prog) => {
+    if (!window.SERVIDOR) return { erro: 'sem servidor' };
+    const todas = FRASES.flat(); let novas = 0, i = 0;
+    for (const t of todas) {
+      i++; prog && prog(i, todas.length);
+      if (await lerVoz(chaveVoz(t))) continue;
+      const j = await pedeVoz(t); if (!j.audio) return { erro: j.erro || 'falhou', novas, total: i - 1 };
+      await salvaVoz(chaveVoz(t), j.audio); novas++;
+    }
+    return { novas, total: todas.length };
+  };
+  // a IA (que gasta credito) so e usada com a chave ligada e a live conectada
+  const podeIA = () => localStorage.getItem('pesc_ia') !== '0' && !!window.LIVE_CONECTADA && window.apresentadorIA !== false && !!window.SERVIDOR;
+
 
   window.testarVoz = () => { if (ocupado) return false; window.apresentadorIA = undefined; falar({ tipo: 'parado', teste: true, evento: 'Teste de voz: se apresente rapidinho para a live e chame o pessoal pra pescar.', prio: 1, nomes: [] }); return true; };
   // escolhe o proximo assunto
@@ -268,8 +302,9 @@
     if (presente && t - inicioFala >= 8000) { fila.splice(fila.indexOf(presente), 1); return falar(presente); }
     if (t - inicioFala < 20000) return;
     nSlot++;
-    if (fila.length && nSlot % 3 === 0) { fila.sort((a, b) => b.prio - a.prio || b.t - a.t); return falar(fila.shift()); } // 1 em cada 3: responde um comentario
-    falar({ tipo: 'parado', evento: ASSUNTOS[nAssunto++ % ASSUNTOS.length](), prio: 1, nomes: [] });
+    if (fila.length && nSlot % 3 === 0 && podeIA()) { fila.sort((a, b) => b.prio - a.prio || b.t - a.t); return falar(fila.shift()); } // 1 em cada 3: responde um comentario (IA)
+    const op = FRASES[nAssunto++ % FRASES.length];
+    falar({ tipo: 'parado', texto: op[Math.random() * op.length | 0], prio: 1, nomes: [] });
   }, 600);
   ultimaFala = agora() - 12000; // primeira fala uns 8s depois de abrir
 

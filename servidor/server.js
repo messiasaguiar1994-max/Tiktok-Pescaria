@@ -188,6 +188,19 @@ async function apresentador(req, res) {
   } catch (e) { console.log('[apresentador] falhou:', e.message); return json(res, { erro: e.status === 401 ? 'chave_invalida' : e.status === 429 ? 'sem_credito' : 'falhou' }, 502); }
 }
 
+// so a voz de uma frase pronta (o app guarda o audio e nao pede de novo)
+const vozesPorMinuto = []; // trava contra uso exagerado
+async function vozPronta(req, res) {
+  let q; try { q = await lerCorpo(req); } catch (e) { return json(res, { erro: 'pedido invalido' }, 400); }
+  if (!OPENAI) return json(res, { erro: 'sem_chave' }, 503);
+  const agora = Date.now(); while (vozesPorMinuto.length && agora - vozesPorMinuto[0] > 60000) vozesPorMinuto.shift();
+  if (vozesPorMinuto.length >= 40) return json(res, { erro: 'devagar' }, 429);
+  vozesPorMinuto.push(agora);
+  const texto = String(q.texto || '').slice(0, 140); if (!texto) return json(res, { erro: 'sem_texto' }, 400);
+  try { return json(res, { audio: await gerarVoz(texto, q.vozNome) }); }
+  catch (e) { return json(res, { erro: e.status === 401 ? 'chave_invalida' : e.status === 429 ? 'sem_credito' : 'falhou' }, 502); }
+}
+
 // teste rapido da IA (texto e voz), sem mostrar a chave
 let ultDiag = 0, diagCache = null;
 async function diagnostico(res) {
@@ -209,6 +222,7 @@ http.createServer((req, res) => {
   if (r === '/' || r === '/status') return json(res, { ok: true, salas: [...salas.keys()].length, ia: !!OPENAI });
   if (r === '/apresentador' && req.method === 'POST') return apresentador(req, res);
   if (r === '/diagnostico') return diagnostico(res);
+  if (r === '/voz' && req.method === 'POST') return vozPronta(req, res);
   if (r === '/foto') return foto(res, u.searchParams.get('u') || '');
   if (r === '/eventos') {
     const usuario = limpaUsuario(u.searchParams.get('usuario'));
