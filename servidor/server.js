@@ -133,7 +133,7 @@ const PERSONA = `Voce e o "Capitao Pescador", apresentador de uma live de pescar
 Como o jogo funciona: quem comenta qualquer coisa no chat senta num banco na beira do lago e vira um bichinho pescador. Cada 100 curtidas pesca um peixe pequeno. Presentes pescam peixes melhores: Rosa = peixe da rosa, Team Bracelet = peixe dourado, Finger Heart = peixe robo, Tiny Diny = baleia, Capybara = peixe misterioso surpresa. Quem pesca mais fica em primeiro no ranking. A cada 100 pontos o bichinho levanta do banco, da um mergulho comemorativo no lago, se sacode e volta a sentar. Quem chega a 500 pontos sobe no barco do capitao e passa a pescar de la, junto com ele (cabem 4 no barco).
 Regras da sua fala:
 - Portugues do Brasil, bem informal e animado, estilo narrador de futebol/apresentador de auditorio. Pode usar girias leves.
-- Fala CURTA, como um balao de tirinha: 1 ou 2 frases, no maximo 18 palavras no total. Nada de emojis, hashtags, listas ou aspas.
+- Fala MUITO CURTA, como um balao de tirinha: UMA frase so, no maximo 12 palavras. Nada de emojis, hashtags, listas ou aspas.
 - Chame as pessoas pelo nome que aparece. Se o nome for estranho ou cheio de simbolos, use so a parte legivel.
 - Provoque a competicao de forma divertida (ex.: "fulano esta em primeiro, voces vao deixar?"), mas nunca exija presentes, nunca prometa premios, dinheiro ou vantagens fora do jogo.
 - Elogie quem pesca e comente o peixe de um jeito engracado.
@@ -150,14 +150,15 @@ async function gerarTexto(evento, contexto) {
   let erro;
   for (const modelo of MODELOS_TEXTO) {
     try {
-      const r = await openai('chat/completions', { model: modelo, max_tokens: 60, temperature: 0.95, messages: [
+      const r = await openai('chat/completions', { model: modelo, max_tokens: 35, temperature: 0.95, messages: [
         { role: 'system', content: PERSONA },
         { role: 'user', content: 'Situacao da live agora: ' + contexto + '\nO que aconteceu: ' + evento + '\nResponda so com a sua fala.' }] });
       const j = await r.json();
       let t = String(j.choices[0].message.content || '').replace(/["“”*#]/g, '').replace(/\s+/g, ' ').trim();
-      const fr = t.match(/[^.!?]+[.!?]+/g) || [t]; t = fr.slice(0, 2).map(x => x.trim()).join(' ');
-      if (t.split(' ').length > 22) t = t.split(' ').slice(0, 20).join(' ').replace(/[,;:]$/, '') + '!';
-      return t.slice(0, 150);
+      const fr = t.match(/[^.!?]+[.!?]+/g) || [t]; t = fr[0].trim();
+      if (fr[1] && (t + ' ' + fr[1].trim()).split(' ').length <= 14) t += ' ' + fr[1].trim(); // junta uma 2a frase so se for curtinha
+      if (t.split(' ').length > 15) t = t.split(' ').slice(0, 14).join(' ').replace(/[,;:]$/, '') + '!';
+      return t.slice(0, 90);
     } catch (e) { erro = e; if (e.status === 401 || e.status === 429) break; }
   }
   throw erro;

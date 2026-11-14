@@ -82,7 +82,7 @@
 
   // ---------- balao de fala ----------
   const css = document.createElement('style');
-  css.textContent = `#fala{position:fixed;left:0;top:0;width:max-content;max-width:190px;box-sizing:border-box;
+  css.textContent = `#fala{position:fixed;left:0;top:0;width:max-content;max-width:250px;box-sizing:border-box;
     padding:6px 9px 7px;border-radius:14px;background:#fffef5;border:2px solid #1d1d2b;color:#1d1d2b;
     font:700 11.5px/1.28 system-ui,Roboto,sans-serif;text-align:left;opacity:0;transition:opacity .25s;pointer-events:none;
     box-shadow:0 3px 8px rgba(0,0,0,.35);transform:translate(-50%,-100%);z-index:5}
@@ -256,10 +256,16 @@
     if (ocupado || !cfg.ligado()) return;
     const menu = document.getElementById('menu'); if (menu && !menu.classList.contains('fora')) { ultimaFala = Math.max(ultimaFala, agora() - 25000); return; } // so fala com o jogo na tela
     const t = agora();
-    for (let i = fila.length - 1; i >= 0; i--) if (t - fila[i].t > (fila[i].prio >= 5 ? 40000 : 20000)) fila.splice(i, 1);
-    if (t - ultimaFala < 1800 || t - inicioFala < 10000) return; // no maximo 1 fala a cada 10 segundos (economiza credito)
+    // regras para economizar credito:
+    // - presente (peixe de presente, mergulho, barco, troca de lider): ele comenta logo (no maximo 1 fala a cada 8s)
+    // - fora isso, ele so fala 1 vez a cada 20 segundos: responde o que tiver de mais recente (comentario, quem chegou) ou puxa assunto
+    for (let i = fila.length - 1; i >= 0; i--) if (t - fila[i].t > (fila[i].prio >= 6 ? 40000 : 25000)) fila.splice(i, 1);
+    if (t - ultimaFala < 1500) return;
+    const presente = fila.filter(f => f.prio >= 6).sort((a, b) => b.prio - a.prio || b.t - a.t)[0];
+    if (presente && t - inicioFala >= 8000) { fila.splice(fila.indexOf(presente), 1); return falar(presente); }
+    if (t - inicioFala < 20000) return;
     if (fila.length) { fila.sort((a, b) => b.prio - a.prio || b.t - a.t); return falar(fila.shift()); }
-    if (t - ultimaFala > 20000) falar({ tipo: 'parado', evento: ASSUNTOS[nAssunto++ % ASSUNTOS.length](), prio: 1, nomes: [] });
+    falar({ tipo: 'parado', evento: ASSUNTOS[nAssunto++ % ASSUNTOS.length](), prio: 1, nomes: [] });
   }, 600);
   ultimaFala = agora() - 12000; // primeira fala uns 8s depois de abrir
 
