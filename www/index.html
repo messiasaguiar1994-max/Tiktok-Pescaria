@@ -105,8 +105,15 @@ for(let i=0;i<n;i++){const o=AC.createOscillator(),g=AC.createGain(),s=t+i*.16;o
 g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(.07,s+.02);g.gain.exponentialRampToValueAtTime(.001,s+.13);o.connect(g);g.connect(MG);o.start(s);o.stop(s+.15)}
 setTimeout(chirp,1500+R()*4500)}
 function splash(){if(!AC)return;const s=AC.createBufferSource();s.buffer=NB;const fl=AC.createBiquadFilter();fl.type='lowpass';fl.frequency.value=1800;const g=AC.createGain(),t=AC.currentTime;g.gain.setValueAtTime(.5,t);g.gain.exponentialRampToValueAtTime(.001,t+.6);s.connect(fl);fl.connect(g);g.connect(MG);s.start(t,0,.7)}
-function amb(){fetch(window.AUDIO_LISTA||'/api/audio').then(r=>r.json()).then(L=>{if(!L.length)return;let i=0;const g=AC.createGain();g.gain.value=.35;g.connect(MG);
-const tocar=()=>fetch(L[i%L.length].url).then(r=>r.arrayBuffer()).then(b=>AC.decodeAudioData(b)).then(buf=>{const s=AC.createBufferSource();s.buffer=buf;s.connect(g);if(L.length===1)s.loop=true;else s.onended=()=>{i++;tocar()};s.start()});tocar()}).catch(e=>console.error('som',e))}
+// musica de fundo: toca a lista em sequencia, sem parar (streaming, gasta pouca memoria)
+let MUS=null;
+function amb(){if(MUS){try{MUS.el.pause();MUS.el.src=''}catch(e){}try{MUS.g.disconnect()}catch(e){}}
+const me=MUS={g:AC.createGain(),el:new Audio()};me.el.crossOrigin='anonymous';me.g.gain.value=window.VOL_MUSICA||.22;me.g.connect(MG);window.MUSICA_GAIN=me.g;
+try{AC.createMediaElementSource(me.el).connect(me.g)}catch(e){console.error('musica',e)}
+(window.listaMusicas?window.listaMusicas():fetch(window.AUDIO_LISTA||'/api/audio').then(r=>r.json())).then(L=>{if(!L.length||MUS!==me)return;let i=0;
+const tocar=()=>{if(MUS!==me)return;me.el.src=L[i%L.length].url;me.el.play().catch(()=>{})};
+me.el.onended=()=>{if(MUS!==me)return;i++;tocar()};me.el.onerror=()=>{if(MUS!==me)return;i++;if(i<L.length*3)setTimeout(tocar,800)};tocar()}).catch(e=>console.error('som',e))}
+window.reiniciaMusica=()=>{if(AC)amb()};
 function snd(){if(AC){AC.resume();return}AC=new(window.AudioContext||window.webkitAudioContext)();MG=AC.createGain();MG.gain.value=.8;MG.connect(AC.destination);
 NB=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate);const d=NB.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=R()*2-1;noise(450,.6,.12,.11);noise(1700,.5,.025,.3);amb()}
 // um som especial para cada peixe (sintetizado no navegador)

@@ -202,6 +202,12 @@
     });
   }
 
+  // musica de fundo fica bem mais baixa enquanto o capitao fala
+  function abaixaMusica(sim) {
+    const g = window.MUSICA_GAIN; if (!g || !AC) return;
+    const v = window.VOL_MUSICA || .22;
+    try { g.gain.setTargetAtTime(sim ? v * 0.3 : v, AC.currentTime, sim ? 0.15 : 0.6); } catch (e) {}
+  }
   async function falar(f) {
     ocupado = true;
     let texto = '', audio = '';
@@ -218,10 +224,12 @@
     }
     window.ultimaVoz = audio ? 'ia' : 'celular';
     if (!texto) texto = falaPronta(f);
+    abaixaMusica(true);
     txt.textContent = texto; balao.classList.add('on'); falando = true; closeBarco = true; nFalas++;
     if (acoes._fala) { acoes._fala.reset().fadeIn(.3).play(); }
     try { if (audio) await vozIA(audio); else await vozCelular(texto); } catch (e) { await new Promise(r => setTimeout(r, 2500)); }
     falando = false; if (acoes._fala) acoes._fala.fadeOut(.4);
+    abaixaMusica(false);
     setTimeout(() => balao.classList.remove('on'), 1200);
     ultimaFala = agora(); ocupado = false;
   }

@@ -59,6 +59,14 @@
       <div class="lin"><button id="tvoz">🔊 Testar voz</button><span id="tvozst" class="dica" style="margin:0"></span></div>
       <div class="dica">Durante o jogo, <b>toque na tela</b>: aparece o botão ⚙️ no canto de cima por alguns segundos. Toque nele para voltar aqui. O botão Voltar do celular também funciona.</div>
     </details>
+    <details class="cx"><summary>🎵 Música de fundo</summary>
+      <div class="dica">Escolha músicas que estão no seu celular. Elas tocam em sequência, sem parar, mais baixas que a voz do capitão (e abaixam ainda mais quando ele fala). Ficam guardadas só neste celular.</div>
+      <div class="lin"><button id="mus">➕ Escolher músicas</button><button id="musx">Remover</button></div>
+      <input id="musf" type="file" accept="audio/*" multiple style="display:none">
+      <div class="dica" id="musl">carregando...</div>
+      <label for="musv">Volume da música</label>
+      <input id="musv" type="range" min="0" max="60" step="1" style="width:100%">
+    </details>
     <details class="cx"><summary>🧪 Testar sem live</summary>
       <div class="dica">Coloca espectadores de mentira no jogo, para ver se está tudo funcionando.</div>
       <div class="lin"><button id="t1">Alguém senta</button><button id="t2">Rosa</button><button id="t3">Capybara</button></div>
@@ -137,6 +145,33 @@
     es.onerror = () => estado('esp', 'sem sinal do servidor, tentando de novo...');
   }
   $m('con').onclick = conectar;
+
+  // ---------- musicas do celular (guardadas no proprio aparelho) ----------
+  const banco = () => new Promise((ok, er) => { const r = indexedDB.open('pescaria', 1); r.onupgradeneeded = () => r.result.createObjectStore('musicas', { keyPath: 'nome' }); r.onsuccess = () => ok(r.result); r.onerror = () => er(r.error); });
+  const todas = () => banco().then(db => new Promise(ok => { const q = db.transaction('musicas').objectStore('musicas').getAll(); q.onsuccess = () => ok(q.result || []); q.onerror = () => ok([]); })).catch(() => []);
+  const urls = [];
+  window.listaMusicas = () => todas().then(L => {
+    if (!L.length) return fetch(window.AUDIO_LISTA).then(r => r.json());
+    urls.splice(0).forEach(u => URL.revokeObjectURL(u));
+    return L.sort((a, b) => a.ordem - b.ordem).map(m => { const u = URL.createObjectURL(m.blob); urls.push(u); return { url: u }; });
+  });
+  const mostraMusicas = () => todas().then(L => { $m('musl').textContent = L.length ? L.length + ' música(s): ' + L.map(m => m.nome.replace(/\.[^.]+$/, '')).join(' • ') : 'Nenhuma escolhida: tocando a música padrão do jogo.'; });
+  $m('mus').onclick = () => $m('musf').click();
+  $m('musf').onchange = async e => {
+    const fs = [...e.target.files]; if (!fs.length) return;
+    $m('musl').textContent = 'guardando ' + fs.length + ' música(s)...';
+    const db = await banco(), base = Date.now();
+    await new Promise(ok => { const tx = db.transaction('musicas', 'readwrite'); fs.forEach((f, i) => tx.objectStore('musicas').put({ nome: f.name, blob: f, ordem: base + i })); tx.oncomplete = ok; tx.onerror = ok; });
+    e.target.value = ''; mostraMusicas(); try { snd(); reiniciaMusica(); } catch (x) {}
+  };
+  $m('musx').onclick = async () => {
+    const db = await banco(); await new Promise(ok => { const tx = db.transaction('musicas', 'readwrite'); tx.objectStore('musicas').clear(); tx.oncomplete = ok; tx.onerror = ok; });
+    mostraMusicas(); try { reiniciaMusica(); } catch (x) {}
+  };
+  window.VOL_MUSICA = +guarda.ler('volmus', '22') / 100;
+  $m('musv').value = Math.round(window.VOL_MUSICA * 100);
+  $m('musv').oninput = () => { window.VOL_MUSICA = $m('musv').value / 100; guarda.salvar('volmus', $m('musv').value); try { MUSICA_GAIN.gain.value = window.VOL_MUSICA; } catch (x) {} };
+  mostraMusicas();
 
   // ---------- jogar / voltar ----------
   $m('jogar').onclick = () => {
