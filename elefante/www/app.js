@@ -101,7 +101,8 @@
   function aoEvento(d) {
     const nome = String(d.nome || d.id || '').trim();
     if (!nome || !window.novoEvento) return;
-    if (d.tipo === 'comentario') { novoEvento('comentario', nome, fotoDe(d.foto)); log(nome + ': ' + (d.texto || '')); }
+    if (d.tipo === 'comentario') { novoEvento('comentario', nome, fotoDe(d.foto)); try { comandoChat(nome, d.texto || ''); } catch (e) {} log(nome + ': ' + (d.texto || '')); }
+    else if (d.tipo === 'curtidas') { try { curtidas(nome); } catch (e) {} log(nome + ' curtiu bastante'); }
     else if (d.tipo === 'presente') {
       const k = PRESENTE[d.nivel]; if (!k) return;
       novoEvento(k, nome, fotoDe(d.foto)); log(nome + ' mandou ' + ({ rosa: 'rosa', coracao: 'coração', rosquinha: 'rosquinha/capivara' })[k]);
