@@ -35,6 +35,7 @@
     box-shadow:0 6px 0 #0d4f8b,0 10px 24px rgba(0,0,0,.25);text-align:center;max-width:92%}
   .gi{height:1.6em;vertical-align:middle;margin:0 2px}
   #queue .row .gq{width:18px;height:18px;border:none;border-radius:0}
+  #toast.low{top:85%}
   #toast.show{opacity:1;transform:translate(-50%,0) scale(1)}
   #toast.gold{color:#8a5a00;box-shadow:0 6px 0 #c9921c,0 10px 24px rgba(0,0,0,.25);background:linear-gradient(#fffbe8,#ffe9a8)}
   #toast.pink{color:#b0105f;box-shadow:0 6px 0 #e05aa0,0 10px 24px rgba(0,0,0,.25);background:linear-gradient(#fff0f8,#ffd0ea)}
@@ -1263,11 +1264,13 @@ function arriveAim(){
   if(P===cagePanel){el.inCage=true;growl();}
   if(P.kind==='giant'||P.kind==='cage')trumpet();
 }
+function celebrate(job,P){
+  plim();
+  if(job.kind==='rose'){applause(4.5);confettiBurst(P,150);sparkleBurst(P,60);glitters.push({P,t:25});toast(`👏👏 <b>${escapeHtml(job.name)}</b> 🌹`,2.4,'gold low');}
+  else if(job.kind==='heart'){applause(4);sparkleBurst(P,150,null);toast(`✨ <b>${escapeHtml(job.name)}</b> 💖`,2.6,'pink low');}
+}
 function finishJob(){
   const job=el.job,P=el.panel;
-  plim();
-  if(job.kind==='rose'){applause(4.5);confettiBurst(P,150);sparkleBurst(P,60);glitters.push({P,t:25});toast(`👏👏 <b>${escapeHtml(job.name)}</b> 🌹`,2.4,'gold');}
-  else if(job.kind==='heart'){applause(4);sparkleBurst(P,150,null);toast(`✨ <b>${escapeHtml(job.name)}</b> 💖`,2.6,'pink');}
   el.job=null;
   if(el.inCage){
     const i=bestJobIndex();
@@ -1334,7 +1337,7 @@ function brain(dt,time){
       const big=el.panel.kind==='giant'||el.panel.kind==='cage'||el.job.kind==='rose';
       el.hop=big?Math.abs(Math.sin(time*7))*.25:0;
       // the finished picture stays in view: 0.5 s for comments, 1 s for gifts
-      if(!el.panel.active){el.hop=0;el.state='admire';el.timer=el.job.kind==='comment'?0.5:1.0;if(el.job.kind!=='comment'){E.head.getWorldPosition(tmpV);heartsAt(tmpV.add(UP),14);}}
+      if(!el.panel.active){el.hop=0;el.state='admire';el.timer=.7+(el.job.kind==='comment'?0.5:1.0);celebrate(el.job,el.panel);if(el.job.kind!=='comment'){E.head.getWorldPosition(tmpV);heartsAt(tmpV.add(UP),14);}}
       tp=big?{pitch:-.2,base:-2.7,curl:.2,tip:.35,ear:.9,headYaw:0}:{pitch:0,base:-.6,curl:.1,tip:-.3,ear:.6,headYaw:0};break;}
     case 'admire':{el.hop=0;el.walk=0;el.yaw=lerpAngle(el.yaw,el.faceYaw,Math.min(1,dt*4));
       if(el.timer<=0){finishJob();break;}
@@ -1573,7 +1576,7 @@ function removeLegend(L){
   if(L.obj)kill(L.obj);if(L.steps)L.steps.forEach(s=>kill(s.sp));
 }
 function updateLegends(dt,time){
-  legendT-=dt;if(legendT<=0){if(hudOn)legendT=3;else{legendT=rand(20,28);spawnLegend();}}
+  legendT-=dt;if(legendT<=0){if(hudOn||el.state==='admire'||el.state==='proud')legendT=3;else{legendT=rand(20,28);spawnLegend();}}
   for(let i=legends.length-1;i>=0;i--){const L=legends[i];L.t+=dt;const t=L.t;
     const fade=clamp(Math.min(t/.6,(L.dur-t)/.9),0,1);
     if(L.mode==='ground'){L.mats[0].opacity=fade;const s=.7+.3*smooth(0,.6,t);L.obj.scale.set(s,s,1);}
@@ -1582,7 +1585,7 @@ function updateLegends(dt,time){
     else if(L.mode==='balloon'){L.mats.forEach(m=>m.opacity=fade);L.obj.position.y=L.obj.userData.y0+t*.9+Math.sin(t*2)*.2;
       L.obj.rotation.y=Math.atan2(camera.position.x-L.obj.position.x,camera.position.z-L.obj.position.z);L.obj.rotation.z=Math.sin(t*1.5)*.06;}
     else{camera.getWorldDirection(camF);const cu=camera.up.clone().applyQuaternion(camera.quaternion);const cr=new THREE.Vector3().crossVectors(camF,cu);
-      L.steps.forEach((s,k)=>{const lt=t-k*2;const f=lt<0||lt>2.2?0:clamp(Math.min(lt/.3,(2.2-lt)/.4),0,1);s.mat.opacity=f;
+      L.steps.forEach((s,k)=>{const lt=t-k*2;const f=(lt<0||lt>2.2||el.state==='admire')?0:clamp(Math.min(lt/.3,(2.2-lt)/.4),0,1);s.mat.opacity=f;
         const pop=lt>0?1+Math.max(0,.35-lt)*1.5:0;s.sp.scale.set(4.2*pop,2.75*pop,1);
         s.sp.position.copy(camera.position).addScaledVector(camF,10).addScaledVector(cu,-2.1+Math.sin(time*3)*.08).addScaledVector(cr,L.side*.5+Math.sin(lt*2)*.15);});}
     if(t>=L.dur){removeLegend(L);legends.splice(i,1);}
@@ -1904,7 +1907,7 @@ const HUD_SETS=[
   ()=>`<div class="rw">${chat}${ar}${fxImg('gray')}</div><div class="rw">${gImg('rosa')}${ar}${fxImg('gold')}</div><div class="rw">${gImg('coracao')}${ar}${fxImg('giant')}</div><div class="rw">${gImg('rosquinha')}${gImg('capivara')}${ar}${fxImg('ride')}</div>`
 ];
 let hudSet=0,hudOn=false,hudT=4;
-function updateHud(dt){hudT-=dt;if(hudT>0)return;hudOn=!hudOn;
+function updateHud(dt){if(el.state==='admire'){hudPanel.classList.remove('on');if(hudOn){hudOn=false;hudT=8;}return;}hudT-=dt;if(hudT>0)return;hudOn=!hudOn;
   if(hudOn){hudPanel.innerHTML=HUD_SETS[hudSet++%HUD_SETS.length]();hudPanel.style.setProperty('--tilt',rand(-5,-1.5).toFixed(1)+'deg');
     hudPanel.style.top=(rand(105,150)|0)+'px';hudPanel.classList.add('on');hudT=15;}
   else{hudPanel.classList.remove('on');hudT=30;}}
@@ -2018,7 +2021,14 @@ function updateCamera(dt,time){
   if(window.__cam){const c=window.__cam;camera.position.set(c[0],c[1],c[2]);camera.lookAt(c[3],c[4],c[5]);return;}
   const portrait=innerHeight>innerWidth;let k=1-Math.exp(-dt*1.6);
   const P=el.panel;const painting=el.job&&(el.state==='aim'||el.state==='spray'||el.state==='proud'||el.state==='admire');
-  if(painting&&P.cam){
+  if(el.state==='admire'&&P){
+    // mini zoom on the finished picture, straight in front of it (nothing in between)
+    k=1-Math.exp(-dt*5);
+    const D=Math.max(P.h*1.1,P.w*(portrait?1.95:1.15))+.6;
+    wantLook.copy(P.center);
+    if(P.kind==='ground'){wantPos.copy(P.center).addScaledVector(P.normal,D*.92).addScaledVector(P.up,-D*.38);}
+    else{wantPos.copy(P.center).addScaledVector(P.normal,D);wantPos.y+=P.h*.08;}
+  }else if(painting&&P.cam){
     const c=P.cam;
     wantLook.copy(P.center).addScaledVector(P.normal,c.look);wantLook.y=P.center.y+c.lookDy;
     wantPos.copy(P.center).addScaledVector(P.normal,portrait?c.d:c.d*.82).addScaledVector(P.right,c.side);wantPos.y=P.center.y+c.dy;
