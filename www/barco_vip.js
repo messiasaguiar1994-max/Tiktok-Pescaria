@@ -42,6 +42,7 @@
     const seat = SEATS.find(s => !s.p); if (!seat) return;
     seat.p = p; p.seat = seat; ocupado[p.barco] = null; p.barco = undefined;
     p.g.position.set(seat.x, 0.55, seat.z); p.g.rotation.set(0, seat.ry, 0); p.lb.scale.set(1.28, 1.6, 1);
+    if (p.trono) try { tronoPara(p, true); } catch (e) {}
     p.fx = -Math.sin(seat.ry); p.fz = -Math.cos(seat.ry);
     const dx = seat.x - LC[0], dz = seat.z - LC[1], dl = Math.hypot(dx, dz), br = 16 + Math.random() * 3;
     p.bt.set(LC[0] + dx / dl * br, 0.08, LC[1] + dz / dl * br); p.bob.position.copy(p.bt);
@@ -53,7 +54,7 @@
       const velho = ocupado.reduce((a, b) => (a && a.vipT <= b.vipT ? a : b));
       i = velho.barco; voltaBanco(velho);
     }
-    if (p.seat) { p.seat.p = null; p.seat = null; } // libera o banco para outra pessoa
+    if (p.seat) { try { tronoRemove(p); } catch (e) {} p.seat.p = null; p.seat = null; } // libera o banco para outra pessoa
     ocupado[i] = p; p.vipT = clk.elapsedTime;
     pulo = { p, i, t0: clk.elapsedTime, S: p.g.position.clone() };
     p.rod.visible = false; p.line.visible = false; p.bob.visible = false; p.st = 0;

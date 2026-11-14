@@ -135,7 +135,7 @@ function idleCam(t){if(t-cm.t0>CD[cm.m]){cm.m=(cm.m+1)%3;cm.t0=t;if(cm.m===2){cm
 const u=t-cm.t0;
 if(cm.m===0){want.set(Math.sin(t*.12)*8,56,16);lt.set(0,0,-20)}
 else if(cm.m===1){const a=-1.1+(u/CD[1])*2.2;want.set(Math.sin(a)*50,20+Math.sin(u*.5)*2,-24+Math.cos(a)*50);lt.set(0,2,-24)}
-else{const p=cm.tg,pos=p.g.position;want.set(pos.x+p.fx*5.2-p.fz*1.2,2.7+Math.sin(u)*.15,pos.z+p.fz*5.2+p.fx*1.2);lt.set(pos.x,1.8,pos.z)}}
+else{const p=cm.tg,pos=p.g.position,alt=Math.max(0,pos.y-.55);want.set(pos.x+p.fx*5.2-p.fz*1.2,2.7+alt+Math.sin(u)*.15,pos.z+p.fz*5.2+p.fx*1.2);lt.set(pos.x,1.8+alt,pos.z)}}
 // movimento de pesca: lançar, fisgar e puxar (braços por cinemática inversa nos modelos com esqueleto)
 const UPV=new T.Vector3(0,1,0),LP=(x,y,z)=>new T.Vector3(x,y,z);
 const K={i:[.2,.38,-.4,65],b:[.15,.9,.2,-35],t:[.15,.55,-.5,85],k:[.15,.85,-.25,10],h:[.12,.75,-.45,25]};
@@ -291,9 +291,9 @@ function loop(){requestAnimationFrame(loop);const dt=Math.min(clk.getDelta(),.1)
 MX.forEach(m=>m.update(dt));P.forEach(p=>{if(p.mx)p.mx.update(dt);p.g.scale.lerp(new T.Vector3(1,1,1),1-Math.exp(-dt*5));p.g.rotation.z=Math.sin(t*.9+p.seed)*.03;p.bob.position.y=.07+Math.sin(t*2+p.seed)*.03;
 tip.set(0,1.5,0);p.rod.localToWorld(tip);const a=p.line.geometry.attributes.position;a.setXYZ(0,tip.x,tip.y,tip.z);a.setXYZ(1,p.bob.position.x,p.bob.position.y,p.bob.position.z);a.needsUpdate=true});
 rip.forEach(r=>{const u=((t*.35+r.userData.o)%1);r.scale.setScalar(.3+u*2.6);r.material.opacity=.35*(1-u)});
-if(!cur&&Q.length&&!window.MERGULHO&&!window.PULO_BARCO){const q=Q.shift(),tr=F[q.tier];focou(q);cur={p:q.p,tr,i:q.tier,top:FZ[q.tier]*.32,D:5.4+(q.tier>=3?2:0),nome:tr.n,t0:t,f:mkFish(tr),s:0};cur.f.visible=false;sc.add(cur.f)}
-if(cur){const p=cur.p,e=t-cur.t0,pos=p.g.position;if(cur.f.userData.mx)cur.f.userData.mx.update(dt);hov.set(pos.x+p.fx*1.2+p.fz*.9,1.9,pos.z+p.fz*1.2-p.fx*.9);
-want.set(pos.x+p.fx*6.4-p.fz*1.0,2.9,pos.z+p.fz*6.4+p.fx*1.0);lt.set(pos.x+p.fx*.3,2.1,pos.z+p.fz*.3);
+if(!cur&&Q.length&&!window.MERGULHO&&!window.PULO_BARCO&&!window.SUBINDO_TRONO){const q=Q.shift(),tr=F[q.tier];focou(q);cur={p:q.p,tr,i:q.tier,top:FZ[q.tier]*.32,D:5.4+(q.tier>=3?2:0),nome:tr.n,t0:t,f:mkFish(tr),s:0};cur.f.visible=false;sc.add(cur.f)}
+if(cur){const p=cur.p,e=t-cur.t0,pos=p.g.position;if(cur.f.userData.mx)cur.f.userData.mx.update(dt);const alt=Math.max(0,pos.y-.55);hov.set(pos.x+p.fx*1.2+p.fz*.9,1.9+alt,pos.z+p.fz*1.2-p.fx*.9);
+want.set(pos.x+p.fx*6.4-p.fz*1.0,2.9+alt,pos.z+p.fz*6.4+p.fx*1.0);lt.set(pos.x+p.fx*.3,2.1+alt,pos.z+p.fz*.3);
 if(e<1.2){}
 else if(e<2.4){const u=(e-1.2)/1.2;if(cur.s<1){cur.s=1;splash();FXS[cur.i]()}cur.f.visible=true;FS.copy(p.bt);FS.y=-.4;cur.f.position.lerpVectors(FS,hov,u);cur.f.position.y+=Math.sin(Math.PI*u)*2.4;cur.f.rotation.z=Math.sin(u*9)*.5}
 else if(e<cur.D){if(cur.s<2){cur.s=2;p.pts+=cur.tr.p;p.inv[cur.nome]=(p.inv[cur.nome]||0)+1;if(cur.tr.p>=50)p.rare++;renderRank();renderJar(p);$('lt').textContent=`${p.name} pescou ${cur.nome} +${cur.tr.p}`;try{window.onPesca&&onPesca(p,cur.nome,cur.tr.p,cur.i)}catch(x){}}
@@ -317,4 +317,5 @@ addEventListener('resize',fit);fit();
 <script src="apresentador.js"></script>
 <script src="mergulho.js"></script>
 <script src="barco_vip.js"></script>
+<script src="trono.js"></script>
 </body></html>

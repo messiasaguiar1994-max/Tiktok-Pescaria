@@ -154,15 +154,14 @@
   };
   window.apresentadorBarco = p => { poe('barco', p.name + ' chegou a 500 pontos e SUBIU NO BARCO para pescar junto com voce, o capitao! De as boas-vindas a bordo com muita festa e desafie os outros a chegarem a 500.', 9, { nome: p.name }); };
   window.apresentadorMergulho = p => { poe('mergulho', p.name + ' chegou a ' + (p.mgN * 100) + ' pontos e vai dar um MERGULHO comemorativo no lago! Narre a comemoracao e desafie os outros a chegarem a 100 pontos tambem.', 8, { nome: p.name }); };
-  window.onSentou = p => { poe('sentou', p.name + ' sentou no banco para pescar. De boas-vindas e diga como pescar (curtidas e presentes).', 4, { nome: p.name }); };
+  window.onSentou = p => {}; // sem boas-vindas individuais (economiza credito)
+  window.apresentadorTrono = p => { poe('trono', p.name + ' chegou a 200 pontos e ganhou o banco gigante, acima de todo mundo! Comemore curtinho.', 8, { nome: p.name }); };
   window.apresentadorEvento = d => {
     if (d.tipo === 'comentario' && d.texto) {
       chat.push({ nome: d.nome, texto: String(d.texto).slice(0, 120) }); if (chat.length > 8) chat.shift();
       try { mostraComentario(d); } catch (e) {}
       poe('chat', 'Responda o comentario de ' + d.nome + ': "' + String(d.texto).slice(0, 120) + '"', 3, { nome: d.nome });
-    } else if (d.tipo === 'chegou') {
-      poe('chegou', 'Chegou na live: ' + d.nome + '. Cumprimente e chame para comentar qualquer coisa no chat para sentar e pescar.', 2, { nome: d.nome });
-    }
+    } // quem chega na live nao e cumprimentado (economiza credito)
   };
 
   // ---------- falas prontas (quando a IA nao esta disponivel) ----------
@@ -173,6 +172,7 @@
       case 'pesca': return pick(['OLHA ISSO! ' + n + ' fisgou um peixão! Que pescaria, meu povo!', 'É PEIXE! ' + n + ' tá on fire hoje, quem vai alcançar?', 'Segura que vem! ' + n + ' puxou mais um da água!']);
       case 'lider': { const t = [...P].sort((a, b) => b.pts - a.pts)[0]; return pick(['Ihhhh galera, ' + (t ? t.name : n) + ' tá em primeiro! Vocês vão deixar?', 'Mudou o ranking! ' + (t ? t.name : n) + ' assumiu a liderança, quem tem coragem de passar?']); }
       case 'barco': return pick(['Bem-vindo a bordo, ' + n + '! Chegou nos 500 pontos e agora pesca comigo no barco!', 'Olha quem subiu no barco! ' + n + ', 500 pontos! Quem vai ser o próximo a bordo?']);
+      case 'trono': return pick([n + ' chegou nos 200 e ganhou o banco gigante!', 'Olha o trono do ' + n + '! 200 pontos!']);
       case 'mergulho': return pick(['OLHA O MERGULHO! ' + n + ' bateu 100 pontos e pulou no lago! Quem é o próximo?', 'Que mergulho, ' + n + '! Chegou nos 100 pontos! Bora, galera, quem vai pular agora?']);
       case 'sentou': return pick(['Bem-vindo ao lago, ' + n + '! Manda curtidas e presentes pra pescar!', 'Senta aí, ' + n + '! Cada 100 curtidas é um peixe, e presente pesca peixe melhor!']);
       case 'chegou': return pick(['Chegou ' + n + '! Comenta qualquer coisa e senta pra pescar!', 'Fala, ' + n + '! O lago tá cheio de peixe, comenta qualquer coisa pra entrar!']);
@@ -208,7 +208,7 @@
     const v = window.VOL_MUSICA || .22;
     try { g.gain.setTargetAtTime(sim ? v * 0.3 : v, AC.currentTime, sim ? 0.15 : 0.6); } catch (e) {}
   }
-  let inicioFala = 0;
+  let inicioFala = 0, nSlot = 0;
   async function falar(f) {
     ocupado = true; inicioFala = agora();
     let texto = '', audio = '';
@@ -238,18 +238,21 @@
   // assuntos para animar a live quando ninguem esta fazendo nada
   let nAssunto = 0;
   const lider1 = () => [...P].sort((a, b) => b.pts - a.pts)[0];
+  // foco: apresentar as legendas/regras do jogo, uma por vez, em frase curta
   const ASSUNTOS = [
-    () => 'A live esta calma. Chame quem esta assistindo calado para comentar e entrar no jogo, com bom humor.',
-    () => lider1() ? lider1().name + ' esta em primeiro com ' + lider1().pts + ' pontos. Provoque o resto do lago para tentar passar.' : 'Ninguem pescou ainda. Desafie o chat a ser o primeiro a fisgar um peixe.',
-    () => 'Explique rapidinho os presentes: Rosa pesca o peixe da rosa, Team Bracelet o peixe dourado, Finger Heart o peixe robo, Tiny Diny a baleia e Capybara um peixe misterioso.',
-    () => 'Faca uma pergunta divertida para o chat responder (de onde estao assistindo, qual peixe querem pescar, etc).',
-    () => 'Conte uma piada curta de pescador ou uma "historia de pescador" exagerada e engracada.',
-    () => 'Lembre que cada 100 curtidas vira um peixe pequeno e chame a galera para encher a tela de curtidas.',
-    () => 'Conte que quem chega a 100 pontos ganha um mergulho comemorativo no lago, e que presentes fazem chegar la mais rapido.',
-    () => 'Conte que quem chega a 500 pontos sobe no seu barco e pesca junto com voce, o capitao. Desafie a galera.',
-    () => P.length > 1 ? 'Faca um mini placar narrado dos primeiros do ranking, como narrador de futebol.' : 'Diga que o lago esta vazio e chame o pessoal para sentar nos bancos.',
-    () => 'Comente o dia bonito no lago, o barco, os passaros, e chame quem acabou de chegar para participar.'
+    () => 'Diga que e so comentar qualquer coisa no chat para entrar no jogo e sentar no lago.',
+    () => 'Diga que cada 100 curtidas pesca um peixinho de 1 ponto.',
+    () => 'Diga que a Rosa pesca o peixe da rosa, que vale 10 pontos.',
+    () => lider1() ? lider1().name + ' lidera com ' + lider1().pts + ' pontos. Provoque o lago para passar.' : 'Desafie o chat a ser o primeiro a pescar.',
+    () => 'Diga que o Team Bracelet pesca o peixe dourado, que vale 20 pontos.',
+    () => 'Diga que quem chega a 100 pontos pula na agua e da um mergulho.',
+    () => 'Diga que o Finger Heart pesca o peixe robo, que vale 50 pontos.',
+    () => 'Diga que quem chega a 200 pontos ganha um banco gigante, bem alto, acima de todo mundo.',
+    () => 'Diga que o Tiny Diny pesca a baleia, que vale 100 pontos.',
+    () => 'Diga que quem chega a 500 pontos pula na agua e vem pro barco pescar do seu lado.',
+    () => 'Diga que a Capybara pesca o peixe misterioso surpresa, que vale 300 pontos.'
   ];
+
   window.testarVoz = () => { if (ocupado) return false; window.apresentadorIA = undefined; falar({ tipo: 'parado', teste: true, evento: 'Teste de voz: se apresente rapidinho para a live e chame o pessoal pra pescar.', prio: 1, nomes: [] }); return true; };
   // escolhe o proximo assunto
   setInterval(() => {
@@ -264,7 +267,8 @@
     const presente = fila.filter(f => f.prio >= 6).sort((a, b) => b.prio - a.prio || b.t - a.t)[0];
     if (presente && t - inicioFala >= 8000) { fila.splice(fila.indexOf(presente), 1); return falar(presente); }
     if (t - inicioFala < 20000) return;
-    if (fila.length) { fila.sort((a, b) => b.prio - a.prio || b.t - a.t); return falar(fila.shift()); }
+    nSlot++;
+    if (fila.length && nSlot % 3 === 0) { fila.sort((a, b) => b.prio - a.prio || b.t - a.t); return falar(fila.shift()); } // 1 em cada 3: responde um comentario
     falar({ tipo: 'parado', evento: ASSUNTOS[nAssunto++ % ASSUNTOS.length](), prio: 1, nomes: [] });
   }, 600);
   ultimaFala = agora() - 12000; // primeira fala uns 8s depois de abrir
