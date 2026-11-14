@@ -618,6 +618,8 @@ function composeFinal(job,W,H,place){
   x.save();x.beginPath();x.arc(cx,cy,R,0,Math.PI*2);x.clip();
   const im=job.img,s=Math.max(2*R/im.width,2*R/im.height);x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';
   x.drawImage(im,cx-im.width*s/2,cy-im.height*s/2,im.width*s,im.height*s);
+  // comentario = foto em preto e branco; rosa e coracao = foto colorida
+  if(k==='comment'){x.globalCompositeOperation='saturation';x.fillStyle='#808080';x.fillRect(cx-R,cy-R,2*R,2*R);x.globalCompositeOperation='source-over';}
   x.restore();job.circle={cx,cy,R};
   if(k==='comment'){
     x.lineWidth=18;x.strokeStyle='#fff';x.beginPath();x.arc(cx,cy,R,0,Math.PI*2);x.stroke();
