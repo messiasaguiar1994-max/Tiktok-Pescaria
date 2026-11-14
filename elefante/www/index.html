@@ -1322,7 +1322,8 @@ function brain(dt,time){
     case 'proud':{
       const big=el.panel.kind==='giant'||el.panel.kind==='cage'||el.job.kind==='rose';
       el.hop=big?Math.abs(Math.sin(time*7))*.25:0;
-      if(!el.panel.active){el.hop=0;if(el.job.kind==='heart'){el.state='admire';el.timer=1.0;E.head.getWorldPosition(tmpV);heartsAt(tmpV.add(UP),14);}else finishJob();}
+      // the finished picture stays in view: 0.5 s for comments, 1 s for gifts
+      if(!el.panel.active){el.hop=0;el.state='admire';el.timer=el.job.kind==='comment'?0.5:1.0;if(el.job.kind!=='comment'){E.head.getWorldPosition(tmpV);heartsAt(tmpV.add(UP),14);}}
       tp=big?{pitch:-.2,base:-2.7,curl:.2,tip:.35,ear:.9,headYaw:0}:{pitch:0,base:-.6,curl:.1,tip:-.3,ear:.6,headYaw:0};break;}
     case 'admire':{el.hop=0;el.walk=0;el.yaw=lerpAngle(el.yaw,el.faceYaw,Math.min(1,dt*4));
       if(el.timer<=0){finishJob();break;}
