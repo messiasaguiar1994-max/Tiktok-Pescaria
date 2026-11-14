@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pipo, o Polvo Poeta</title>
+<style>
+html,body{margin:0;height:100%;background:#021a33;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+canvas{display:block}
+#start{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(2,30,60,.88);color:#fff;z-index:10;cursor:pointer;text-align:center}
+#start h1{font-size:32px;margin:0 0 12px}
+#start p{font-size:17px;opacity:.9;margin:4px 24px;max-width:420px}
+#start .btn{margin-top:22px;background:#ff5a8a;padding:14px 30px;border-radius:30px;font-size:22px;font-weight:800;box-shadow:0 6px 0 #b8325c}
+#painelBtn{position:fixed;right:10px;bottom:10px;z-index:5;background:rgba(0,0,0,.55);color:#fff;border:0;border-radius:20px;padding:9px 14px;font-size:15px;cursor:pointer}
+#painel{position:fixed;right:10px;bottom:58px;z-index:5;background:rgba(8,18,38,.94);color:#fff;padding:14px;border-radius:14px;width:250px;display:none;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+#painel b{display:block;margin-bottom:6px;font-size:15px}
+#painel{max-height:80vh;overflow:auto}
+#painel input{width:100%;box-sizing:border-box;padding:9px;border-radius:8px;border:0;margin:4px 0 8px;font-size:15px}
+#painel button{width:100%;margin:3px 0;padding:10px;border:0;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px}
+.b1{background:#ff5a8a;color:#fff}.b2{background:#ffd54a;color:#333}.b3{background:#5ad1ff;color:#033}.b4{background:#9cffb0;color:#033}
+#painel small{display:block;opacity:.7;margin-top:8px;line-height:1.35}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+
+
+<script>
+"use strict";
+// =================== TELA ===================
+const W = 540, H = 960;
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+function resize() {
+  const s = Math.min(innerWidth / W, innerHeight / H);
+  const dpr = window.devicePixelRatio || 1;
+  cv.style.width = (W * s) + 'px';
+  cv.style.height = (H * s) + 'px';
+  cv.width = Math.round(W * s * dpr);
+  cv.height = Math.round(H * s * dpr);
+}
+addEventListener('resize', resize); resize();
+
+// =================== UTIL ===================
+const rnd = (a, b) => a + Math.random() * (b - a);
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function hex2rgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function mixHex(a, b, t) { const A = hex2rgb(a), B = hex2rgb(b); return `rgb(${A.map((v, i) => Math.round(lerp(v, B[i], t))).join(',')})`; }
+function rrect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function easeBack(t) { const c = 1.7; t = clamp(t, 0, 1) - 1; return t * t * ((c + 1) * t + c) + 1; }
+let seed = 7; function srnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+const FONTE = '"Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif';
+
+// =================== ESTADO ===================
+const S = {
+  t: 0, likes: 0, meta: 1000,
+  pose: 'idle', poseT: 0, poseDur: 5,
+  fila: [], cur: null,
+  celebra: 0, metaMsg: 0,
+  blinkT: 0, nextBlink: 2,
+  falando: false,
+  tartaruga: { x: -200, ativo: false, prox: 12, dir: 1, y: 330 },
+  legendas: [], proxLegenda: 4,
+};
+
+// =================== CENÁRIO (dados fixos) ===================
+const peixes = [];
+const coresPeixe = [['#ffb02e', '#ff7a00'], ['#ff6fa8', '#d93d7a'], ['#56e0ff', '#1b8fd0'], ['#b8ff5c', '#4fb81c'], ['#c79bff', '#7b4ddb'], ['#ffe14d', '#f0a800']];
+for (let i = 0; i < 8; i++) novoPeixe(true);
+function novoPeixe(inicio) {
+  const dir = Math.random() < .5 ? 1 : -1;
+  const c = coresPeixe[Math.floor(Math.random() * coresPeixe.length)];
+  peixes.push({ x: inicio ? rnd(0, W) : (dir > 0 ? -60 : W + 60), y: rnd(120, 820), dir, v: rnd(30, 75), tam: rnd(.6, 1.25), c, fase: rnd(0, 6) });
+}
+const bolhas = [];
+for (let i = 0; i < 40; i++) bolhas.push({ x: rnd(0, W), y: rnd(0, H), r: rnd(2, 7), v: rnd(20, 60), f: rnd(0, 6) });
+const algas = [30, 70, 200, 330, 505, 470, 160, 380].map((x, i) => ({ x, h: 120 + (i * 37 % 90), cor: i % 2 ? '#2fae6a' : '#1f8f55', f: i }));
+const pedrinhas = []; seed = 11;
+for (let i = 0; i < 40; i++) pedrinhas.push({ x: srnd() * W, y: 830 + srnd() * 120, r: 2 + srnd() * 5, c: srnd() < .5 ? '#c9a46a' : '#e8c991' });
+const aguas = [];
+for (let i = 0; i < 3; i++) aguas.push({ x: 140 + i * 130, y: 0, f: i * 1.7 });
+const notas = [], coracoes = [], petalas = [], confetes = [];
+
+// =================== ÁUDIO ===================
+let AC = null, master, musicGain, sfxGain;
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+function initAudio() {
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  master = AC.createGain(); master.gain.value = .9; master.connect(AC.destination);
+  musicGain = AC.createGain(); musicGain.gain.value = .32; musicGain.connect(master);
+  sfxGain = AC.createGain(); sfxGain.gain.value = .55; sfxGain.connect(master);
+  setInterval(agendarMusica, 40);
+}
+function tom(m, when, dur, type, g, dest) {
+  const o = AC.createOscillator(), gn = AC.createGain();
+  o.type = type; o.frequency.value = mtof(m);
+  gn.gain.setValueAtTime(0.0001, when);
+  gn.gain.linearRampToValueAtTime(g, when + .012);
+  gn.gain.exponentialRampToValueAtTime(.0001, when + dur);
+  o.connect(gn); gn.connect(dest); o.start(when); o.stop(when + dur + .05);
+}
+function marimba(m, when, g = .25, dest = musicGain) { tom(m, when, .45, 'sine', g, dest); tom(m + 12, when, .12, 'triangle', g * .25, dest); }
+// música original: progressão alegre de "fundo do mar"
+const BPM = 108, OITAVA = 60 / BPM / 2;
+const partes = [
+  [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]],
+  [[53, 57, 60], [55, 59, 62], [52, 55, 59], [57, 60, 64]],
+];
+const padroes = [[0, 1, 2, 1, 0, 2, 1, 2], [0, 2, 1, 2, 0, 1, 2, 1]];
+const hook = [79, null, 76, 77, 79, null, 84, null, 81, null, 79, 77, 76, null, 74, null];
+let proxTempo = 0, passo = 0;
+function agendarMusica() {
+  if (!AC) return;
+  if (proxTempo < AC.currentTime) proxTempo = AC.currentTime + .05;
+  while (proxTempo < AC.currentTime + .25) {
+    const compasso = Math.floor(passo / 8), oit = passo % 8;
+    const sec = Math.floor(compasso / 8) % 2;
+    const acorde = partes[sec][compasso % 4];
+    const pad = padroes[sec][oit];
+    marimba(acorde[pad] + 12, proxTempo, .16);
+    if (oit === 0 || oit === 4) tom(acorde[0] - 12, proxTempo, .35, 'triangle', .3, musicGain);
+    if (oit === 2 || oit === 6) bolhaSom(proxTempo, .05);
+    if (compasso % 4 >= 2) { const h = hook[(passo % 16)]; if (h) marimba(h, proxTempo, .1); }
+    proxTempo += OITAVA; passo++;
+  }
+}
+function bolhaSom(when, g) {
+  const o = AC.createOscillator(), gn = AC.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(500 + Math.random() * 400, when);
+  o.frequency.exponentialRampToValueAtTime(1400, when + .08);
+  gn.gain.setValueAtTime(g, when); gn.gain.exponentialRampToValueAtTime(.0001, when + .1);
+  o.connect(gn); gn.connect(musicGain); o.start(when); o.stop(when + .12);
+}
+function abaixarMusica(sim) { if (AC) musicGain.gain.setTargetAtTime(sim ? .1 : .32, AC.currentTime, .25); }
+function plim() { if (!AC) return; const t = AC.currentTime; tom(88, t, .6, 'sine', .35, sfxGain); tom(95, t + .12, .8, 'sine', .3, sfxGain); }
+function fanfarra() { if (!AC) return; const t = AC.currentTime; [72, 76, 79, 84, 88].forEach((m, i) => { tom(m, t + i * .11, .5, 'triangle', .3, sfxGain); tom(m - 12, t + i * .11, .5, 'sine', .2, sfxGain); }); }
+
+// =================== VOZ (cantar o nome) ===================
+const synth = window.speechSynthesis || null;
+let voz = null;
+function escolherVoz() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  voz = vs.find(v => /pt-BR/i.test(v.lang) && /google|francisca|natural|online/i.test(v.name)) ||
+        vs.find(v => /pt-BR/i.test(v.lang)) || vs.find(v => /^pt/i.test(v.lang)) || null;
+}
+if (synth) { escolherVoz(); synth.onvoiceschanged = escolherVoz; }
+function limparNome(n) {
+  let s = String(n || '').normalize('NFKC').replace(/[_\.]/g, ' ').replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+  if (s.length > 18) s = s.split(' ')[0];
+  return s || 'amigo';
+}
+const TTSN = () => (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.TextToSpeech) || null;
+function falar(txt, pitch, rate) {
+  const n = TTSN();
+  if (n) { // voz nativa do Android (grátis)
+    S.falando = true;
+    return Promise.race([n.speak({ text: txt, lang: 'pt-BR', rate: rate, pitch: pitch, volume: 1, category: 'playback' }).catch(() => { vozFalhou++; }), new Promise(r => setTimeout(r, 9000))])
+      .then(() => { S.falando = false; vozFuncionou = true; });
+  }
+  return new Promise(res => {
+    if (!synth) return setTimeout(res, 800);
+    const u = new SpeechSynthesisUtterance(txt);
+    u.lang = 'pt-BR'; if (voz) u.voice = voz;
+    u.pitch = pitch; u.rate = rate; u.volume = 1;
+    let ok = false, comecou = false; const fim = () => { if (!ok) { ok = true; S.falando = false; res(); } };
+    u.onstart = () => { comecou = true; vozFuncionou = true; vozFalhou = 0; S.falando = true; };
+    u.onend = fim; u.onerror = () => { vozFalhou++; fim(); };
+    setTimeout(() => { if (!comecou) { vozFalhou++; S.falando = true; setTimeout(fim, 600); } }, 1600);
+    setTimeout(fim, 6000);
+    try { synth.cancel(); synth.resume(); } catch (e) { }
+    synth.speak(u);
+  });
+}
+function melodia(ns, passoS = .22, g = .3) { if (!AC) return; const t = AC.currentTime; ns.forEach((m, i) => { if (m) { tom(m, t + i * passoS, .5, 'triangle', g, sfxGain); tom(m + 12, t + i * passoS, .2, 'sine', g * .35, sfxGain); } }); }
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let vozFuncionou = false, vozFalhou = 0;
+function temVozAparelho() { return !!TTSN() || (!!synth && vozFalhou < 2); }
+
+// ---------- RIMAS com o nome (grátis, sem internet) ----------
+// Banco de versos. O jogo descobre sozinho com que som cada verso termina.
+const VERSOS = [
+ 'que alegria', 'você ilumina o meu dia', 'você é pura poesia', 'sua luz contagia', 'que linda companhia', 'tem brilho e simpatia', 'é a luz que me guia', 'encheu a live de magia',
+ 'a estrela da semana', 'que pessoa bacana', 'o carinho que você emana', 'sua luz ninguém engana',
+ 'sua luz ilumina', 'que pessoa gente fina', 'sua alegria me fascina', 'sorriso que contamina',
+ 'brilha mais que estrela', 'a live ficou mais bela', 'sorriso de aquarela', 'que alma tão singela',
+ 'alegria tão rara', 'joia que não se compara', 'sua luz nunca para',
+ 'sua luz é infinita', 'que energia bonita', 'alegria que agita',
+ 'pessoa tão querida', 'alegria colorida', 'surpresa merecida', 'luz da minha vida',
+ 'a live fica mais rica', 'sua luz se multiplica', 'alegria que fica',
+ 'leve como a brisa', 'sorriso que eterniza', 'luz que harmoniza',
+ 'alma tão tranquila', 'seu brilho que cintila', 'alegria que desfila',
+ 'sorriso de meiguice', 'é tudo que eu disse',
+ 'seu brilho aquece', 'você tudo merece', 'sorriso que floresce', 'a live te agradece',
+ 'deixa todo mundo contente', 'você é luz pra toda gente', 'sua luz é tão presente', 'seu carinho é um presente',
+ 'você é tão importante', 'sorriso radiante', 'presença marcante', 'brilho fascinante',
+ 'um coração tão grande', 'sua luz se expande',
+ 'que luz que você é', 'vamos tomar um café?', 'tem todo o meu axé', 'brilha da cabeça ao pé',
+ 'brilho de cometa', 'estrela do planeta', 'alegria completa',
+ 'mora no meu coração', 'você é pura emoção', 'que gesto de gratidão', 'é luz nessa multidão', 'você é minha inspiração',
+ 'um anjo do céu', 'doce como mel', 'pra você tiro o chapéu', 'brilha mais que um troféu', 'pinta o mar como um pincel',
+ 'você chegou e me encantou', 'o mar inteiro brilhou', 'meu coração dançou', 'sua rosa me alegrou',
+ 'rosa cheia de amor', 'você tem tanto valor', 'perfume de uma flor', 'que gesto encantador', 'brilha com esplendor',
+ 'seu brilho é de encantar', 'impossível não notar', 'você veio pra brilhar', 'sua rosa me fez sonhar', 'vem comigo navegar',
+ 'você me faz feliz', 'sorriso que tudo diz', 'a estrela que eu sempre quis', 'brilha que nem chafariz',
+ 'luz no céu azul', 'brilha de norte a sul',
+ 'luz assim eu nunca vi', 'que bom ter você aqui', 'o mar sorri por ti', 'tanta alegria eu senti',
+ 'você me faz sorrir', 'seu brilho vai seguir',
+ 'brilha pra mim', 'sorriso sem fim', 'perfume de jasmim',
+ 'você tem um dom', 'a live tá no tom', 'que coisa boa, que bom',
+ 'a live tá bombando', 'meu coração tá pulando', 'o mar todo tá dançando', 'você chegou arrasando',
+ 'vamos dançar um tango?', 'doce como um morango',
+ 'você é um encanto', 'gosto de você tanto', 'seu brilho é um espanto',
+ 'a live tá do seu lado', 'é um sonho realizado', 'que gesto delicado',
+ 'seu brilho é tão raro', 'um carinho tão claro', 'seu carinho é um regalo',
+ 'que gesto tão belo', 'mais doce que caramelo', 'você merece um castelo',
+ 'você é um mago', 'é um doce afago', 'brilha mais que um lago',
+ 'você merece um bravo', 'perfume de cravo',
+ 'você é pura doçura', 'quanta ternura', 'sua alegria é a cura',
+ 'alegria com estilo', 'sorriso tranquilo',
+ 'brilha no meu caminho', 'doce como um docinho', 'você nunca tá sozinho',
+ 'o mar é seu império', 'você é luz, é sério', 'brilho de mistério',
+ 'que gesto de brio', 'alegria de um rio',
+ 'você vale mais que ouro', 'um sonho lindo', 'que gesto tão bonito', 'um brilho tão sincero',
+ 'sua rosa é maravilhosa', 'alegria tão gostosa', 'que pessoa carinhosa',
+ 'alegria verdadeira', 'luz a vida inteira',
+ 'brilha mais que prata', 'alegria que arrebata', 'cantei uma serenata',
+ 'sua luz é que comanda', 'brilho que nunca desanda', 'felicidade em ciranda',
+ 'você é tão chique', 'que a alegria fique', 'que o amor se multiplique',
+ 'um mar todo azul',
+];
+const MEIO = ['Sua rosa chegou como um abraço,', 'Obrigado pela rosa e pelo carinho,', 'Com essa rosa você me encantou,', 'Sua rosa deixou o mar mais bonito,'];
+const VOG = 'aeiouáéíóúâêôãõà', ACENTO = /[áéíóúâêôãõ]/;
+const semAcento = t => t.replace(/[áàâ]/g, 'a').replace(/[éê]/g, 'e').replace(/í/g, 'i').replace(/[óô]/g, 'o').replace(/ú/g, 'u');
+function chaveRima(palavra) {
+  let w = String(palavra).toLowerCase().replace(/[^a-záéíóúâêôãõàçüyw]/g, '');
+  w = w.replace(/ão/g, 'ã').replace(/ãe/g, 'ã').replace(/õe/g, 'õ').replace(/lh/g, 'L').replace(/nh/g, 'N')
+    .replace(/qu(?=[eiéíê])/g, 'k').replace(/gu(?=[eiéíê])/g, 'g').replace(/ch/g, 'x').replace(/ph/g, 'f').replace(/th/g, 't').replace(/h/g, '')
+    .replace(/y/g, 'i').replace(/w/g, 'u').replace(/ç/g, 's').replace(/ss/g, 's').replace(/c(?=[eiéíê])/g, 's').replace(/c/g, 'k').replace(/g(?=[eiéíê])/g, 'j')
+    .replace(/z$/, 's').replace(/ul$/, 'u').replace(/l$/, 'u').replace(/m$/, 'n');
+  const g = []; // grupos de vogais
+  for (let i = 0; i < w.length; i++) {
+    if (!VOG.includes(w[i])) continue;
+    let fim = i + 1;
+    if ((w[fim] === 'i' || w[fim] === 'u') && !VOG.includes(w[fim + 1] || 'x') && fim < w.length) fim++;
+    g.push({ ini: i, txt: w.slice(i, fim) }); i = fim - 1;
+  }
+  if (!g.length) return null;
+  let t = -1;
+  for (let k = 0; k < g.length; k++) if (ACENTO.test(g[k].txt)) t = k;
+  if (t < 0) t = /(a|e|o|as|es|os|am|em|ens)$/.test(w) && g.length > 1 ? g.length - 2 : g.length - 1;
+  const key = semAcento(w.slice(g[t].ini)).replace(/s$/, '');
+  const depois = w.slice(g[t].ini + g[t].txt.length);
+  return { key, sv: semAcento(g[t].txt), fv: semAcento(g[g.length - 1].txt), nasal: /^[mn]([^aeiouáéíóúâêô]|$)/.test(depois) || /[ãõ]/.test(g[t].txt) };
+}
+const BANCO = VERSOS.map(v => ({ v, c: chaveRima(v.replace(/[?!.,]+$/, '').split(' ').pop()) }));
+function rimasPara(nome) {
+  const c = chaveRima(nome); if (!c) return null;
+  const testes = [
+    b => b.c.key === c.key,
+    b => b.c.sv === c.sv && b.c.fv === c.fv && b.c.nasal === c.nasal,
+    b => b.c.sv === c.sv && b.c.fv === c.fv,
+    b => b.c.fv === c.fv && b.c.nasal === c.nasal,
+    b => b.c.fv.slice(-1) === c.fv.slice(-1),
+  ];
+  const ult = semAcento(nome.toLowerCase()).split(' ').pop();
+  const out = [];
+  for (const teste of testes) {
+    const novos = BANCO.filter(b => teste(b) && !out.includes(b.v) && b.v.split(' ').pop() !== ult).map(b => b.v).sort(() => Math.random() - .5);
+    out.push(...novos);
+    if (out.length >= 3) break;
+  }
+  return out.length >= 3 ? out : null;
+}
+function nomeCanto(bruto) { const n = (limparNome(bruto).replace(/\d+/g, ' ').trim() || 'amigo').split(' ')[0]; return n.charAt(0).toUpperCase() + n.slice(1).toLowerCase(); }
+function nomeEstranho(n) {
+  const s = n.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return s.length < 2 || s.length > 14 || !/[aeiouy]/.test(s) || /[^aeiouy\s]{4,}/.test(s) || /^(user|usuario|tiktok|amigo)$/.test(s);
+}
+function letraGratis(bruto) {
+  let nome = nomeCanto(bruto), op = nomeEstranho(nome) ? null : rimasPara(nome);
+  if (!op) { nome = 'estrela da live'; op = rimasPara('alegria'); } // nome impronunciável: vira "estrela da live" (a tela mostra o nome e a foto)
+  const cap = t => t.replace(/^./, c => c.toUpperCase());
+  const pont = t => /[?!]$/.test(t) ? t : t + '!';
+  return ['Oi, ' + nome + ', ' + pont(op[0]), cap(pont(op[1])), MEIO[Math.floor(Math.random() * MEIO.length)], cap(pont(op[2]))];
+}
+
+// ---------- VOZ HUMANA (OpenAI, opcional) ----------
+const CFG = { chave: '', voz: 'coral' };
+try { CFG.chave = localStorage.getItem('pipo_chave') || ''; CFG.voz = localStorage.getItem('pipo_voz') || 'coral'; } catch (e) { }
+let statusOpenAI = CFG.chave ? 'chave salva (ainda não testada)' : 'desligada (sem chave)';
+const cacheVoz = new Map();
+async function comTempo(p, ms) { return Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('demorou')), ms))]); }
+async function letraIA(bruto) {
+  const nome = nomeCanto(bruto);
+  const r = await comTempo(fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + CFG.chave },
+    body: JSON.stringify({ model: 'gpt-4o-mini', temperature: .9, max_tokens: 90, messages: [
+      { role: 'system', content: 'Você escreve poeminhas curtos e alegres em português do Brasil para um polvinho recitar numa live do TikTok.' },
+      { role: 'user', content: `Escreva 4 versos curtos (no máximo 7 palavras cada) agradecendo ${nome} por mandar uma rosa. O 1º verso começa com "Oi, ${nome}". Os versos 1, 3 e 4 precisam rimar com o nome ${nome}. Os versos devem fazer a pessoa se sentir muito especial e querida (elogios carinhosos, nada genérico). Não diga "esse poema é pra você". Não use palavras de gênero (amigo/amiga, lindo/linda para a pessoa). Nada ofensivo. Responda só com os 4 versos, um por linha.` }] })
+  }), 5000);
+  if (!r.ok) throw new Error('OpenAI ' + r.status);
+  const j = await r.json();
+  const linhas = j.choices[0].message.content.split('\n').map(l => l.replace(/^[\d\-\.\)\s"]+|"$/g, '').trim()).filter(Boolean);
+  if (linhas.length < 3) throw new Error('letra ruim');
+  return linhas.slice(0, 4);
+}
+async function vozIA(letra) {
+  const chaveCache = letra.join('|') + CFG.voz;
+  if (cacheVoz.has(chaveCache)) return cacheVoz.get(chaveCache);
+  const r = await comTempo(fetch('https://api.openai.com/v1/audio/speech', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + CFG.chave },
+    body: JSON.stringify({ model: 'gpt-4o-mini-tts', voice: CFG.voz, response_format: 'mp3', input: letra.join('\n'),
+      instructions: 'Recite este poeminha em português do Brasil com voz calorosa, alegre e expressiva, como um apresentador carismático declamando um poema na live. Ritmo animado, pequenas pausas entre os versos, sorria na voz e capriche no nome da pessoa.' })
+  }), 15000);
+  if (!r.ok) throw new Error('OpenAI ' + r.status);
+  const buf = await AC.decodeAudioData(await r.arrayBuffer());
+  cacheVoz.set(chaveCache, buf);
+  return buf;
+}
+async function preparar(ev) {
+  ev.letra = letraGratis(ev.nome);
+  if (!CFG.chave || !AC) return;
+  try { ev.letra = await letraIA(ev.nome); } catch (e) { }
+  try { ev.audio = await vozIA(ev.letra); statusOpenAI = '✅ funcionando'; }
+  catch (e) { ev.audio = null; statusOpenAI = /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? '❌ bloqueada aqui — abra o arquivo baixado no Chrome do PC' : '❌ erro: ' + e.message; }
+  atualizarStatus();
+}
+let analisador = null, dadosAn = null;
+function tocarBuffer(buf, linhas) {
+  return new Promise(res => {
+    const src = AC.createBufferSource(); src.buffer = buf;
+    const g = AC.createGain(); g.gain.value = 1.4;
+    analisador = AC.createAnalyser(); analisador.fftSize = 512; dadosAn = new Uint8Array(analisador.fftSize);
+    src.connect(g); g.connect(analisador); analisador.connect(master);
+    const t0 = AC.currentTime, dur = buf.duration;
+    const iv = setInterval(() => { if (S.cur) S.cur.linha = Math.min(linhas - 1, Math.floor((AC.currentTime - t0) / dur * linhas)); }, 80);
+    S.falando = true;
+    src.onended = () => { clearInterval(iv); S.falando = false; analisador = null; res(); };
+    src.start();
+  });
+}
+function nivelVoz() {
+  if (!analisador) return null;
+  analisador.getByteTimeDomainData(dadosAn); let s = 0;
+  for (let i = 0; i < dadosAn.length; i++) { const v = (dadosAn[i] - 128) / 128; s += v * v; }
+  return Math.min(1, Math.sqrt(s / dadosAn.length) * 5);
+}
+async function cantar(ev) {
+  const letra = ev.letra;
+  if (ev.audio) { await tocarBuffer(ev.audio, letra.length); await wait(400); return; }
+  // sem OpenAI: voz do aparelho, verso por verso, com melodia
+  const tons = [[1.15, 1.12, [79]], [1.05, 1.15, [76]], [1.15, 1.12, [81]], [1.2, 1.08, [84, 88]]];
+  const voz = temVozAparelho();
+  for (let i = 0; i < letra.length; i++) {
+    S.cur.linha = i; const [p, r, n] = tons[i % 4];
+    melodia(n, .12, .12);
+    if (voz) await falar(letra[i], p, r);
+    else { S.falando = true; await wait(1700); S.falando = false; }
+    await wait(60);
+  }
+  await wait(500);
+}
+
+// =================== EVENTOS (rosa / curtidas) ===================
+function rosa(nome, foto) {
+  nome = String(nome || 'Alguém').slice(0, 30);
+  const iguais = S.fila.filter(e => e.nome === nome).length + (S.cur && S.cur.nome === nome ? 1 : 0);
+  if (iguais >= 2) { chuvaPetalas(12); return; } // no máximo 2 vezes seguidas por pessoa
+  const ev = { nome, foto: foto || null, img: null };
+  if (foto) { const lista = Array.isArray(foto) ? foto : [foto]; let i = 0; const im = new Image(); im.onload = () => ev.img = im; im.onerror = () => { if (++i < lista.length) im.src = lista[i]; }; im.src = lista[0]; }
+  ev.prep = AC ? preparar(ev) : Promise.resolve(ev.letra = letraGratis(nome));
+  S.fila.push(ev);
+  processar();
+}
+let processando = false;
+async function processar() {
+  if (processando || !S.fila.length) return;
+  processando = true;
+  const ev = S.fila.shift();
+  S.cur = Object.assign(ev, { t0: S.t, cantando: false, rosaVoo: 0, linha: -1 });
+  plim(); chuvaPetalas(20);
+  await Promise.all([wait(1100), ev.prep.catch(() => { })]);
+  if (!ev.letra) ev.letra = letraGratis(ev.nome);
+  S.cur.cantando = true; abaixarMusica(true);
+  await cantar(ev);
+  S.cur.cantando = false; abaixarMusica(false);
+  await wait(900);
+  S.cur = null; S.pose = 'wave'; S.poseT = 0; S.poseDur = 2.5;
+  processando = false;
+  if (S.fila.length) { await wait(400); processar(); }
+}
+function curtidas(n) {
+  n = Math.max(0, Math.floor(n || 0));
+  S.likes += n;
+  for (let i = 0; i < Math.min(n / 10, 18); i++) coracoes.push({ x: rnd(440, 520), y: rnd(880, 940), v: rnd(60, 120), f: rnd(0, 6), s: rnd(16, 30), vida: 0 });
+  if (S.likes >= S.meta) {
+    S.meta += 500;
+    while (S.likes >= S.meta) S.meta += 500;
+    S.celebra = 4.5; S.metaMsg = 4.5; fanfarra();
+    for (let i = 0; i < 90; i++) confetes.push({ x: rnd(0, W), y: rnd(-200, 0), vx: rnd(-30, 30), vy: rnd(80, 200), r: rnd(0, 6), vr: rnd(-6, 6), c: ['#ff5a8a', '#ffd54a', '#5ad1ff', '#9cffb0', '#c79bff'][i % 5] });
+  }
+}
+function chuvaPetalas(n) { for (let i = 0; i < n; i++) petalas.push({ x: rnd(40, W - 40), y: rnd(-120, -10), vy: rnd(70, 140), f: rnd(0, 6), r: rnd(0, 6), vida: 0 }); }
+
+// API para ligar na live depois: window.jogo.rosa('Nome','urlDaFoto'), window.jogo.curtidas(50)
+window.jogo = { rosa, curtidas };
+// Conexão opcional com servidor: ?ws=wss://seu-servidor  (mensagens JSON {tipo:'rosa',nome,foto} ou {tipo:'curtidas',n})
+(function conectar() {
+  const url = new URLSearchParams(location.search).get('ws'); if (!url) return;
+  let ws; try { ws = new WebSocket(url); } catch (e) { return; }
+  ws.onmessage = m => { try { const d = JSON.parse(m.data); if (d.tipo === 'rosa' || /rose/i.test(d.presente || '')) rosa(d.nome, d.foto); else if (d.tipo === 'curtidas') curtidas(d.n); } catch (e) { } };
+  ws.onclose = () => setTimeout(conectar, 3000);
+})();
+
+// =================== DESENHO: FUNDO ===================
+const paletas = [['#5fd8ff', '#0b5f9e'], ['#3cc7d6', '#0a4a78'], ['#7aa6ff', '#2b3a8f'], ['#5ce0d0', '#0d5f86']];
+function fundo() {
+  const ciclo = (S.t / 60) % paletas.length; // muda a cor da água a cada minuto
+  const i = Math.floor(ciclo), f = ciclo - i, j = (i + 1) % paletas.length;
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, mixHex(paletas[i][0], paletas[j][0], f));
+  g.addColorStop(1, mixHex(paletas[i][1], paletas[j][1], f));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // raios de luz
+  for (const a of aguas) {
+    const al = .07 + .05 * Math.sin(S.t * .7 + a.f);
+    ctx.fillStyle = `rgba(255,255,255,${al})`;
+    const sx = a.x + Math.sin(S.t * .3 + a.f) * 30;
+    ctx.beginPath(); ctx.moveTo(sx - 25, 0); ctx.lineTo(sx + 25, 0); ctx.lineTo(sx + 120, 820); ctx.lineTo(sx - 20, 820); ctx.closePath(); ctx.fill();
+  }
+}
+function areia() {
+  const g = ctx.createLinearGradient(0, 780, 0, H);
+  g.addColorStop(0, '#f6dea8'); g.addColorStop(1, '#d4ad6c');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 20) ctx.lineTo(x, 800 + Math.sin(x * .02) * 12 + Math.sin(x * .05) * 5);
+  ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+  for (const p of pedrinhas) { ctx.fillStyle = p.c; ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r * 1.4, p.r, 0, 0, 7); ctx.fill(); }
+  // estrela-do-mar
+  estrela(70, 900, 22, '#ff7a59', S.t * .2);
+  estrela(470, 920, 16, '#ffb84d', -S.t * .15);
+}
+function estrela(x, y, r, c, rot) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(rot) * .2); ctx.fillStyle = c; ctx.beginPath();
+  for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, rr = i % 2 ? r * .45 : r; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+  ctx.closePath(); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.5)';
+  for (let i = 0; i < 5; i++) { const a = i * Math.PI * 2 / 5 - Math.PI / 2; ctx.beginPath(); ctx.arc(Math.cos(a) * r * .5, Math.sin(a) * r * .5, 2, 0, 7); ctx.fill(); }
+  ctx.restore();
+}
+function rochaArco() {
+  ctx.fillStyle = '#5b6f86';
+  ctx.beginPath(); ctx.ellipse(40, 760, 90, 140, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#6f86a0';
+  ctx.beginPath(); ctx.ellipse(55, 730, 60, 100, .2, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(60, 790, 26, 40, 0, 0, 7); ctx.fill();
+}
+function casaConcha() {
+  const x = 440, y = 690;
+  ctx.save(); ctx.translate(x, y);
+  const g = ctx.createRadialGradient(-20, -60, 10, 0, 0, 150);
+  g.addColorStop(0, '#ffe3d1'); g.addColorStop(1, '#f39a8a');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.moveTo(-110, 120); ctx.quadraticCurveTo(-120, -40, 0, -170); ctx.quadraticCurveTo(120, -40, 110, 120); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(190,90,90,.55)'; ctx.lineWidth = 5;
+  for (let i = 1; i <= 4; i++) { ctx.beginPath(); ctx.moveTo(-105 + i * 8, 120 - i * 25); ctx.quadraticCurveTo(0, 60 - i * 55, 105 - i * 8, 120 - i * 25); ctx.stroke(); }
+  // porta e janela
+  ctx.fillStyle = '#3b7bd1'; ctx.beginPath(); ctx.arc(10, 85, 34, Math.PI, 0); ctx.lineTo(44, 120); ctx.lineTo(-24, 120); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ffd54a'; ctx.beginPath(); ctx.arc(32, 100, 4, 0, 7); ctx.fill();
+  ctx.fillStyle = '#bfe9ff'; ctx.strokeStyle = '#3b7bd1'; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.arc(-40, -10, 22, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = `rgba(255,240,150,${.3 + .2 * Math.sin(S.t * 2)})`; ctx.beginPath(); ctx.arc(-40, -10, 16, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function corais() {
+  coral(150, 820, '#ff6fa8', 1); coral(395, 830, '#ff9f43', .8); coral(500, 840, '#c79bff', .7);
+}
+function coral(x, y, c, s) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.strokeStyle = c; ctx.lineCap = 'round';
+  const galho = (len, ang, w, d) => {
+    if (d === 0) return;
+    ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(0, 0);
+    const sw = Math.sin(S.t * 1.2 + d) * .05;
+    ctx.rotate(ang + sw); ctx.lineTo(0, -len); ctx.stroke();
+    ctx.translate(0, -len);
+    ctx.save(); galho(len * .72, -.5, w * .7, d - 1); ctx.restore();
+    ctx.save(); galho(len * .72, .5, w * .7, d - 1); ctx.restore();
+  };
+  galho(40, 0, 14, 4); ctx.restore();
+}
+function alga(a) {
+  ctx.strokeStyle = a.cor; ctx.lineWidth = 11; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(a.x, 860);
+  for (let k = 1; k <= 10; k++) { const u = k / 10; ctx.lineTo(a.x + Math.sin(S.t * 1.5 + a.f + u * 3) * 18 * u, 860 - a.h * u); }
+  ctx.stroke();
+}
+function placa() {
+  const x = 125, y = 520, ang = Math.sin(S.t * 1.3) * .04;
+  ctx.fillStyle = '#8a5a2b'; ctx.fillRect(x - 7, y, 14, 300);
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.strokeStyle = '#d9b06b'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-60, -40); ctx.lineTo(0, -75); ctx.lineTo(60, -40); ctx.stroke();
+  ctx.fillStyle = '#b07a3e'; rrect(-104, -45, 208, 92, 16); ctx.fill();
+  ctx.strokeStyle = '#7a4f22'; ctx.lineWidth = 5; rrect(-104, -45, 208, 92, 16); ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = '#5a3613'; ctx.lineWidth = 5; ctx.textAlign = 'center';
+  ctx.font = `bold 21px ${FONTE}`;
+  ctx.strokeText('FAÇO UM POEMA', 0, -6); ctx.fillText('FAÇO UM POEMA', 0, -6);
+  ctx.strokeText('PRA VOCÊ 🌹', 0, 26); ctx.fillText('PRA VOCÊ 🌹', 0, 26);
+  ctx.restore();
+}
+function peixe(p, dt) {
+  p.x += p.dir * p.v * dt; p.fase += dt * 8;
+  const y = p.y + Math.sin(p.fase * .2) * 10;
+  ctx.save(); ctx.translate(p.x, y); ctx.scale(p.dir * p.tam, p.tam);
+  ctx.fillStyle = p.c[1]; ctx.beginPath();
+  const cauda = Math.sin(p.fase) * 6;
+  ctx.moveTo(-22, 0); ctx.lineTo(-40, -14 + cauda); ctx.lineTo(-40, 14 + cauda); ctx.closePath(); ctx.fill();
+  const g = ctx.createLinearGradient(0, -16, 0, 16); g.addColorStop(0, p.c[0]); g.addColorStop(1, p.c[1]);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, 28, 17, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(-6, -15, 6, 30);
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(14, -4, 6, 0, 7); ctx.fill();
+  ctx.fillStyle = '#123'; ctx.beginPath(); ctx.arc(15.5, -4, 3, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function tartaruga(dt) {
+  const T = S.tartaruga;
+  if (!T.ativo) { T.prox -= dt; if (T.prox <= 0) { T.ativo = true; T.dir = Math.random() < .5 ? 1 : -1; T.x = T.dir > 0 ? -120 : W + 120; T.y = rnd(260, 420); } return; }
+  T.x += T.dir * 55 * dt;
+  if (T.x < -150 || T.x > W + 150) { T.ativo = false; T.prox = rnd(15, 25); return; }
+  const y = T.y + Math.sin(S.t * 1.5) * 15, rem = Math.sin(S.t * 4);
+  ctx.save(); ctx.translate(T.x, y); ctx.scale(T.dir, 1);
+  ctx.fillStyle = '#7fd36b';
+  ctx.save(); ctx.translate(25, 18); ctx.rotate(.5 + rem * .4); ctx.beginPath(); ctx.ellipse(0, 10, 10, 26, 0, 0, 7); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.translate(-25, 18); ctx.rotate(.3 - rem * .3); ctx.beginPath(); ctx.ellipse(0, 10, 8, 18, 0, 0, 7); ctx.fill(); ctx.restore();
+  ctx.beginPath(); ctx.ellipse(62, -4, 20, 16, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(70, -9, 6, 0, 7); ctx.fill();
+  ctx.fillStyle = '#123'; ctx.beginPath(); ctx.arc(72, -9, 3, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#2b5'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(66, 0, 7, .2, 1.4); ctx.stroke();
+  // óculos de mergulho
+  ctx.strokeStyle = '#ff5a8a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(70, -9, 9, 0, 7); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(61, -11); ctx.lineTo(45, -14); ctx.stroke();
+  const g = ctx.createRadialGradient(-5, -15, 5, 0, 0, 50); g.addColorStop(0, '#c58a4a'); g.addColorStop(1, '#7a4f22');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, 48, 30, 0, Math.PI, 0); ctx.lineTo(48, 6); ctx.lineTo(-48, 6); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,220,150,.6)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-15, -26); ctx.lineTo(-20, 4); ctx.moveTo(15, -26); ctx.lineTo(20, 4); ctx.moveTo(-45, -6); ctx.lineTo(45, -6); ctx.stroke();
+  ctx.restore();
+}
+function aguaViva(x0, f) {
+  const x = x0 + Math.sin(S.t * .3 + f) * 40, y = 260 + Math.sin(S.t * .5 + f) * 60, p = 1 + Math.sin(S.t * 3 + f) * .12;
+  ctx.save(); ctx.translate(x, y); ctx.globalAlpha = .75;
+  ctx.strokeStyle = '#ffb3e6'; ctx.lineWidth = 3;
+  for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * 8, 0); for (let k = 1; k <= 6; k++) ctx.lineTo(i * 8 + Math.sin(S.t * 3 + k + i) * 5, k * 10); ctx.stroke(); }
+  ctx.fillStyle = '#ff9fd9'; ctx.beginPath(); ctx.ellipse(0, 0, 28 * p, 24 / p, 0, Math.PI, 0); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.ellipse(-8, -12, 7, 4, -.4, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+// =================== PERSONAGEM: PIPO, O POLVO ===================
+const poses = ['idle', 'wave', 'dance', 'swim', 'look', 'spin'];
+let pontaRosa = { x: 0, y: 0 };
+function poseAtual() { if (S.cur) return S.cur.cantando ? 'sing' : 'surprise'; if (S.celebra > 0) return 'cheer'; return S.pose; }
+function pipo() {
+  const t = S.t, pose = poseAtual();
+  let cx = 270, cy = 600, bob = Math.sin(t * 2) * 8, rot = 0, sx = 1, sy = 1;
+  if (pose === 'dance') { cx += Math.sin(t * 5) * 30; bob = -Math.abs(Math.sin(t * 5)) * 22; rot = Math.sin(t * 5) * .12; }
+  if (pose === 'swim') { cx += Math.sin(S.poseT * .9) * 90; bob = Math.sin(S.poseT * 1.8) * 40 - 30; rot = Math.cos(S.poseT * .9) * .15; }
+  if (pose === 'sing') { cx += Math.sin(t * 2.5) * 10; rot = Math.sin(t * 2.5) * .06; }
+  if (pose === 'cheer') { bob = -Math.abs(Math.sin(t * 6)) * 35; }
+  if (pose === 'surprise') { const k = clamp((t - S.cur.t0) * 3, 0, 1); sy = 1 + Math.sin(k * Math.PI) * .15; bob = -k * 20; }
+  if (pose === 'spin') { sx = Math.cos(S.poseT * 4); }
+  if (pose === 'look') { rot = Math.sin(t * 1.2) * .12; }
+  const respira = 1 + Math.sin(t * 2.2) * .02;
+  cy += bob;
+  // sombra
+  ctx.fillStyle = 'rgba(0,30,60,.22)'; ctx.beginPath(); ctx.ellipse(cx, 815, 95 - bob * .6, 16, 0, 0, 7); ctx.fill();
+  // arco-íris na comemoração
+  if (S.celebra > 0) {
+    const a = clamp(S.celebra, 0, 1);
+    ['#ff4d4d', '#ff9f43', '#ffe14d', '#5ce07a', '#4db8ff', '#9b6bff'].forEach((c, i) => { ctx.strokeStyle = c; ctx.globalAlpha = a; ctx.lineWidth = 14; ctx.beginPath(); ctx.arc(270, 620, 210 - i * 14, Math.PI, 0); ctx.stroke(); });
+    ctx.globalAlpha = 1;
+  }
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.scale(sx || .02, sy * respira);
+  // tentáculos
+  const n = 6;
+  for (let i = 0; i < n; i++) {
+    const d = -1 + 2 * i / (n - 1);
+    let lift = 0;
+    if (pose === 'wave' && i === n - 1) lift = 1;
+    if ((pose === 'sing' || pose === 'surprise') && i === n - 1) lift = .85;
+    if (pose === 'cheer' && (i === 0 || i === n - 1)) lift = 1;
+    if (pose === 'dance' && (i === 0 || i === n - 1)) lift = (Math.sin(t * 5 + (i ? Math.PI : 0)) + 1) / 2;
+    const ponta = tentaculo(d * 62, 52, d, lift, i, pose);
+    if (i === n - 1) pontaRosa = { x: cx + ponta.x * sx, y: cy + ponta.y };
+  }
+  // cabeça
+  const g = ctx.createRadialGradient(-25, -45, 10, 0, 0, 110);
+  g.addColorStop(0, '#ffb1c8'); g.addColorStop(1, '#ff5f8f');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -5, 88, 82, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(-35, -50, 22, 12, -.5, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(220,60,110,.35)';
+  [[38, -45, 9], [55, -20, 6], [-55, -15, 7], [20, -65, 5]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); });
+  // chapéu de marinheiro
+  ctx.save(); ctx.translate(18, -82); ctx.rotate(.18);
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(0, 0, 46, 14, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-32, 0); ctx.quadraticCurveTo(0, -48, 32, 0); ctx.fill();
+  ctx.fillStyle = '#2d5bd1'; ctx.fillRect(-33, -10, 66, 9);
+  ctx.restore();
+  // olhos
+  S.blinkT -= 1 / 60;
+  const piscando = S.blinkT > 0;
+  const feliz = pose === 'sing' || pose === 'cheer';
+  let ox = Math.sin(t * .7) * 5, oy = 0;
+  if (pose === 'look') ox = Math.sin(t * 1.5) * 9;
+  if (pose === 'surprise') oy = -6;
+  for (const e of [-1, 1]) {
+    const ex = e * 32, ey = -10;
+    if (feliz) {
+      ctx.strokeStyle = '#3a1630'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(ex, ey + 6, 14, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+    } else if (piscando) {
+      ctx.strokeStyle = '#3a1630'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(ex - 14, ey); ctx.lineTo(ex + 14, ey); ctx.stroke();
+    } else {
+      const big = pose === 'surprise' ? 1.15 : 1;
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(ex, ey, 20 * big, 25 * big, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#2a1230'; ctx.beginPath(); ctx.ellipse(ex + ox, ey + 3 + oy, 11, 13, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + ox + 4, ey - 3 + oy, 4, 0, 7); ctx.fill();
+    }
+  }
+  // bochechas
+  ctx.fillStyle = 'rgba(255,90,140,.55)'; ctx.beginPath(); ctx.ellipse(-55, 18, 13, 8, 0, 0, 7); ctx.ellipse(55, 18, 13, 8, 0, 0, 7); ctx.fill();
+  // boca
+  ctx.fillStyle = '#7a1838'; ctx.strokeStyle = '#7a1838'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  if (pose === 'sing') {
+    const nv = nivelVoz();
+    const ab = nv !== null ? 4 + nv * 18 : (S.falando ? 6 + Math.abs(Math.sin(t * 13)) * 12 : 5);
+    ctx.beginPath(); ctx.ellipse(0, 30, 13, ab, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ff7aa0'; ctx.beginPath(); ctx.ellipse(0, 30 + ab * .45, 8, ab * .35, 0, 0, 7); ctx.fill();
+  } else if (pose === 'cheer' || pose === 'surprise') {
+    ctx.beginPath(); ctx.arc(0, 22, 20, 0, Math.PI); ctx.closePath(); ctx.fill();
+  } else {
+    ctx.beginPath(); ctx.arc(0, 20, 18, .2, Math.PI - .2); ctx.stroke();
+  }
+  ctx.restore();
+}
+function tentaculo(bx, by, d, lift, i, pose) {
+  const t = S.t, segs = 16, comp = 9;
+  const baixo = Math.PI / 2 - d * .95, cima = -Math.PI / 2 + d * .75;
+  let ang = lerp(baixo, cima, lift);
+  const pts = []; let x = bx, y = by;
+  for (let k = 0; k <= segs; k++) {
+    const u = k / segs;
+    pts.push({ x, y, r: 22 * (1 - u * .74) });
+    const onda = Math.sin(t * (lift > .5 ? 7 : 3) + i * 1.3 + u * 4) * (lift > .5 ? .35 : .22);
+    const a = ang - d * u * 1.3 * (1 - lift) + onda * u - (lift > .5 ? d * u * .6 : 0);
+    x += Math.cos(a) * comp; y += Math.sin(a) * comp;
+  }
+  const g = ctx.createLinearGradient(0, by, 0, by + 140);
+  g.addColorStop(0, '#ff6f99'); g.addColorStop(1, '#ff9bb8');
+  ctx.fillStyle = g;
+  for (let k = pts.length - 1; k >= 0; k--) { const p = pts[k]; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill(); }
+  ctx.fillStyle = '#ffd1df';
+  for (let k = 2; k < pts.length; k += 2) { const p = pts[k]; ctx.beginPath(); ctx.arc(p.x + d * p.r * .35, p.y + p.r * .3, p.r * .32, 0, 7); ctx.fill(); }
+  return pts[pts.length - 1];
+}
+function rosaDesenho(x, y, s) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.strokeStyle = '#2e8b3e'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 45); ctx.stroke();
+  ctx.fillStyle = '#3cb44b'; ctx.beginPath(); ctx.ellipse(10, 25, 10, 5, -.5, 0, 7); ctx.fill();
+  ctx.fillStyle = '#e8173d';
+  for (let k = 0; k < 5; k++) { const a = k * 1.256 + S.t * .3; ctx.beginPath(); ctx.ellipse(Math.cos(a) * 9, -6 + Math.sin(a) * 7, 13, 11, a, 0, 7); ctx.fill(); }
+  ctx.fillStyle = '#b30f2e'; ctx.beginPath(); ctx.arc(0, -8, 8, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+// =================== INTERFACE (barra, faixa, legendas) ===================
+function barra() {
+  const x = 40, y = 34, w = W - 80, h = 30, pct = clamp(S.likes / S.meta, 0, 1);
+  ctx.fillStyle = 'rgba(10,20,50,.55)'; rrect(x - 4, y - 4, w + 8, h + 30, 14); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.25)'; rrect(x, y, w, h, 12); ctx.fill();
+  if (pct > 0) {
+    const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, '#ff3d6e'); g.addColorStop(1, '#ff8fb1');
+    ctx.fillStyle = g; rrect(x, y, Math.max(24, w * pct), h, 12); ctx.fill();
+    ctx.fillStyle = `rgba(255,255,255,${.25 + .2 * Math.sin(S.t * 4)})`;
+    rrect(x + 4, y + 4, Math.max(16, w * pct - 8), 8, 4); ctx.fill();
+  }
+  ctx.fillStyle = '#fff'; ctx.font = `bold 18px ${FONTE}`; ctx.textAlign = 'center';
+  ctx.fillText(Math.floor(pct * 100) + '%', W / 2, y + 21);
+  ctx.font = `13px ${FONTE}`; ctx.fillStyle = 'rgba(255,255,255,.9)';
+  ctx.fillText(`Chuva de corações ❤️ ${S.likes.toLocaleString('pt-BR')} / ${S.meta.toLocaleString('pt-BR')} curtidas`, W / 2, y + h + 18);
+}
+function faixa() {
+  if (S.metaMsg > 0) {
+    const a = clamp(S.metaMsg, 0, 1), k = easeBack((4.5 - S.metaMsg) * 2.5);
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(W / 2, 200); ctx.scale(k, k);
+    ctx.fillStyle = '#ffd54a'; rrect(-200, -45, 400, 90, 24); ctx.fill();
+    ctx.fillStyle = '#7a3b00'; ctx.textAlign = 'center'; ctx.font = `bold 30px ${FONTE}`; ctx.fillText('META BATIDA! 🎉', 0, -5);
+    ctx.font = `bold 17px ${FONTE}`; ctx.fillText('Nova meta: ' + S.meta.toLocaleString('pt-BR') + ' curtidas', 0, 26);
+    ctx.restore();
+  }
+  if (!S.cur) return;
+  const c = S.cur, k = easeBack((S.t - c.t0) * 2.5);
+  ctx.save(); ctx.translate(W / 2, 195); ctx.scale(k, k);
+  const g = ctx.createLinearGradient(-220, 0, 220, 0); g.addColorStop(0, '#8f3dff'); g.addColorStop(1, '#ff4d8d');
+  ctx.fillStyle = g; rrect(-225, -58, 450, 116, 28); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; rrect(-225, -58, 450, 116, 28); ctx.stroke();
+  // foto
+  const ax = -165;
+  ctx.save(); ctx.beginPath(); ctx.arc(ax, 0, 44, 0, 7); ctx.clip();
+  if (c.img) ctx.drawImage(c.img, ax - 44, -44, 88, 88);
+  else { ctx.fillStyle = '#ffd54a'; ctx.fillRect(ax - 44, -44, 88, 88); ctx.fillStyle = '#8f3dff'; ctx.font = `bold 44px ${FONTE}`; ctx.textAlign = 'center'; ctx.fillText((limparNome(c.nome)[0] || '?').toUpperCase(), ax, 16); }
+  ctx.restore();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(ax, 0, 44, 0, 7); ctx.stroke();
+  // nome
+  ctx.textAlign = 'left'; let fs = 38;
+  do { ctx.font = `bold ${fs}px ${FONTE}`; fs -= 2; } while (ctx.measureText(c.nome).width > 290 && fs > 16);
+  ctx.lineWidth = 6; ctx.strokeStyle = '#4a0e5c'; ctx.strokeText(c.nome, -105, -4);
+  ctx.fillStyle = '#fff'; ctx.fillText(c.nome, -105, -4);
+  ctx.font = `bold 19px ${FONTE}`; ctx.fillStyle = '#ffe9a8';
+  ctx.fillText(c.cantando ? '📜 Um poema pra você...' : 'Obrigado pela rosa! 🌹', -105, 32);
+  ctx.restore();
+  // fila
+  if (S.fila.length) {
+    const nomes = S.fila.slice(0, 4).map(e => e.nome).join(' · ');
+    ctx.font = `bold 15px ${FONTE}`; ctx.textAlign = 'center';
+    const tw = Math.min(W - 40, ctx.measureText('Próximos: ' + nomes).width + 30);
+    ctx.fillStyle = 'rgba(10,20,50,.55)'; rrect(W / 2 - tw / 2, 270, tw, 30, 15); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.fillText('🌹 Próximos: ' + nomes + (S.fila.length > 4 ? ' +' + (S.fila.length - 4) : ''), W / 2, 291);
+  }
+}
+function karaoke() {
+  if (!S.cur || !S.cur.cantando || !S.cur.letra) return;
+  const L = S.cur.letra, i = clamp(S.cur.linha, 0, L.length - 1);
+  const y = 345;
+  ctx.fillStyle = 'rgba(10,20,50,.6)'; rrect(20, y - 32, W - 40, 92, 22); ctx.fill();
+  ctx.textAlign = 'center';
+  let fs = 30; do { ctx.font = `bold ${fs}px ${FONTE}`; fs -= 2; } while (ctx.measureText(L[i]).width > W - 70 && fs > 14);
+  ctx.lineWidth = 6; ctx.strokeStyle = '#7a1838'; ctx.strokeText('✨ ' + L[i], W / 2, y + 6);
+  ctx.fillStyle = '#ffe14d'; ctx.fillText('✨ ' + L[i], W / 2, y + 6);
+  if (L[i + 1]) { ctx.font = `17px ${FONTE}`; ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText(L[i + 1], W / 2, y + 42); }
+}
+const textosLegenda = [['🌹', 'Mande uma rosa', 'e ganhe um poema!'], ['❤️', 'Curta a live', 'para encher a barra!'], ['📜', 'Rosa = um poema', 'com o seu nome!']];
+const lugaresLegenda = [[150, 900], [400, 770], [400, 420], [130, 400], [270, 880]];
+let ultLugar = -1, ultTexto = -1;
+function legendas(dt) {
+  S.proxLegenda -= dt;
+  if (S.proxLegenda <= 0 && !S.cur) {
+    let li; do { li = Math.floor(Math.random() * lugaresLegenda.length); } while (li === ultLugar);
+    ultLugar = li; ultTexto = (ultTexto + 1) % textosLegenda.length;
+    S.legendas.push({ x: lugaresLegenda[li][0], y: lugaresLegenda[li][1], txt: textosLegenda[ultTexto], vida: 0, dur: 5 });
+    S.proxLegenda = rnd(8, 12);
+  }
+  for (const L of S.legendas) {
+    L.vida += dt;
+    const a = Math.min(1, L.vida * 3, (L.dur - L.vida) * 2), k = easeBack(L.vida * 3);
+    if (a <= 0) continue;
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(L.x, L.y + Math.sin(S.t * 2) * 4); ctx.scale(k, k);
+    ctx.fillStyle = 'rgba(255,255,255,.93)'; rrect(-115, -34, 230, 68, 20); ctx.fill();
+    ctx.font = `30px ${FONTE}`; ctx.textAlign = 'center'; ctx.fillText(L.txt[0], -82, 11);
+    ctx.fillStyle = '#7a1838'; ctx.font = `bold 17px ${FONTE}`; ctx.textAlign = 'left';
+    ctx.fillText(L.txt[1], -60, -4); ctx.font = `15px ${FONTE}`; ctx.fillStyle = '#334'; ctx.fillText(L.txt[2], -60, 18);
+    ctx.restore();
+  }
+  S.legendas = S.legendas.filter(L => L.vida < L.dur);
+}
+
+// =================== PARTÍCULAS ===================
+function particulas(dt) {
+  for (const b of bolhas) {
+    b.y -= b.v * dt; b.x += Math.sin(S.t * 2 + b.f) * .3;
+    if (b.y < -10) { b.y = H + 10; b.x = rnd(0, W); }
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(b.x - b.r * .35, b.y - b.r * .35, b.r * .3, 0, 7); ctx.fill();
+  }
+  // notas musicais quando canta
+  if (S.cur && S.cur.cantando && Math.random() < .12) notas.push({ x: 270 + rnd(-70, 70), y: 500, v: rnd(50, 90), f: rnd(0, 6), c: ['#ffd54a', '#fff', '#9cffb0', '#ffb3e6'][Math.floor(rnd(0, 4))], s: rnd(22, 36), ch: Math.random() < .5 ? '♪' : '♫', vida: 0 });
+  for (const n of notas) { n.vida += dt; n.y -= n.v * dt; n.x += Math.sin(S.t * 3 + n.f) * .8; ctx.globalAlpha = clamp(2.5 - n.vida, 0, 1); ctx.fillStyle = n.c; ctx.font = `bold ${n.s}px ${FONTE}`; ctx.textAlign = 'center'; ctx.fillText(n.ch, n.x, n.y); }
+  ctx.globalAlpha = 1;
+  for (const h of coracoes) { h.vida += dt; h.y -= h.v * dt; h.x += Math.sin(S.t * 3 + h.f) * .7; ctx.globalAlpha = clamp(3 - h.vida, 0, 1); ctx.font = `${h.s}px ${FONTE}`; ctx.textAlign = 'center'; ctx.fillText('❤️', h.x, h.y); }
+  ctx.globalAlpha = 1;
+  for (const p of petalas) { p.vida += dt; p.y += p.vy * dt; p.x += Math.sin(S.t * 2 + p.f) * 1; p.r += dt * 2; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.globalAlpha = clamp(5 - p.vida, 0, 1); ctx.fillStyle = '#e8173d'; ctx.beginPath(); ctx.ellipse(0, 0, 9, 5, 0, 0, 7); ctx.fill(); ctx.restore(); }
+  for (const c of confetes) { c.y += c.vy * dt; c.x += c.vx * dt; c.r += c.vr * dt; ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(c.r); ctx.fillStyle = c.c; ctx.fillRect(-5, -3, 10, 6); ctx.restore(); }
+  ctx.globalAlpha = 1;
+  limpar(notas, n => n.vida < 2.5); limpar(coracoes, h => h.vida < 3); limpar(petalas, p => p.vida < 5 && p.y < H + 20); limpar(confetes, c => c.y < H + 20);
+}
+function limpar(arr, ok) { for (let i = arr.length - 1; i >= 0; i--) if (!ok(arr[i])) arr.splice(i, 1); }
+
+// =================== LOOP PRINCIPAL ===================
+let ultimo = performance.now();
+function quadro(agora) {
+  const dt = clamp((agora - ultimo) / 1000, 0, .05); ultimo = agora; S.t += dt;
+  ctx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
+  // poses automáticas (o personagem nunca fica parado do mesmo jeito)
+  S.poseT += dt;
+  if (!S.cur && S.celebra <= 0 && S.poseT > S.poseDur) {
+    let p; do { p = poses[Math.floor(Math.random() * poses.length)]; } while (p === S.pose);
+    S.pose = p; S.poseT = 0; S.poseDur = p === 'spin' ? 1.6 : p === 'swim' ? rnd(6, 8) : rnd(3.5, 6);
+  }
+  S.nextBlink -= dt; if (S.nextBlink <= 0) { S.blinkT = .15; S.nextBlink = rnd(2, 5); }
+  if (S.celebra > 0) S.celebra -= dt; if (S.metaMsg > 0) S.metaMsg -= dt;
+
+  fundo();
+  aguaViva(90, 0); aguaViva(460, 2);
+  tartaruga(dt);
+  rochaArco(); casaConcha();
+  for (const a of algas) alga(a);
+  areia(); corais(); placa();
+  for (const p of peixes) peixe(p, dt);
+  limpar(peixes, p => p.x > -80 && p.x < W + 80);
+  while (peixes.length < 8) novoPeixe(false);
+  pipo();
+  if (S.cur) {
+    const k = clamp((S.t - S.cur.t0) / 1, 0, 1);
+    const x = lerp(W / 2, pontaRosa.x, k), y = lerp(150, pontaRosa.y - 30, k) - Math.sin(k * Math.PI) * 80;
+    rosaDesenho(x, y, .9 + Math.sin(S.t * 4) * .05);
+  }
+  particulas(dt);
+  desenharChats(dt);
+  legendas(dt);
+  barra(); faixa(); karaoke();
+  requestAnimationFrame(quadro);
+}
+requestAnimationFrame(quadro);
+
+// =================== LIGAÇÃO COM O APP (app.js) ===================
+function atualizarStatus() { }
+window.ligarSom = function (on) {
+  if (!AC) { try { initAudio(); } catch (e) { } }
+  if (AC) { if (AC.state === 'suspended') AC.resume(); master.gain.value = on ? .9 : 0; }
+};
+window.novoEvento = function (tipo, nome, foto) {
+  if (tipo === 'rosa') rosa(nome, foto);
+  else if (tipo === 'comentario') chats.push({ nome: String(nome).slice(0, 22), x: rnd(30, 200), y: 900, vida: 0 });
+};
+window.curtidasLive = n => curtidas(n);
+window.testarVoz = () => falar('Oi! Eu sou o Pipo, o polvo poeta!', 1.1, 1.05);
+const chats = [];
+function desenharChats(dt) {
+  for (const c of chats) {
+    c.vida += dt; c.y -= 45 * dt;
+    const a = clamp(Math.min(c.vida * 3, 4 - c.vida), 0, 1); if (a <= 0) continue;
+    ctx.save(); ctx.globalAlpha = a; ctx.font = `bold 16px ${FONTE}`; ctx.textAlign = 'left';
+    const t = '💬 ' + c.nome, w = ctx.measureText(t).width + 20;
+    ctx.fillStyle = 'rgba(255,255,255,.88)'; rrect(c.x, c.y - 20, w, 30, 15); ctx.fill();
+    ctx.fillStyle = '#123a6b'; ctx.fillText(t, c.x + 10, c.y + 1); ctx.restore();
+  }
+  limpar(chats, c => c.vida < 4);
+}
+</script>
+<script src="app.js"></script>
+</body>
+</html>

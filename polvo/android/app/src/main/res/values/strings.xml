@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Polvo Poeta</string>
+    <string name="title_activity_main">Polvo Poeta</string>
+    <string name="package_name">com.polvo.aovivo</string>
+    <string name="custom_url_scheme">com.polvo.aovivo</string>
+</resources>

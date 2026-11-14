@@ -1,0 +1,6 @@
+{
+  "appId": "com.polvo.aovivo",
+  "appName": "Polvo Poeta",
+  "webDir": "www",
+  "android": { "allowMixedContent": true }
+}
