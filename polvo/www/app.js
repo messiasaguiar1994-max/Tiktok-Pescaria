@@ -48,6 +48,11 @@
       <div class="lin"><button id="t1">🌹 Rosa</button><button id="t2">❤️ Curtidas</button><button id="t3">💬 Comentário</button></div>
       <div class="lin"><button id="t4">🔊 Testar a voz</button></div>
     </details>
+    <details class="cx" open><summary>🗣️ Voz do polvo</summary>
+      <div class="dica">Escolha a voz que soar mais natural. As marcadas com 🌐 são as mais humanas (precisam de internet). Toque em Ouvir para comparar.</div>
+      <select id="voz" style="width:100%;font-size:17px;padding:12px;border-radius:14px;margin-top:10px;background:#0b2b4a;color:#fff;border:1px solid #4b8fb0"><option value="-1">Voz padrão do celular</option></select>
+      <div class="lin"><button id="ouvir">▶ Ouvir esta voz</button></div>
+    </details>
     <details class="cx"><summary>⚙️ Configurações</summary>
       <label for="srv">Endereço do servidor</label>
       <input id="srv" placeholder="https://seu-servidor.onrender.com" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -149,6 +154,24 @@
   $m('t2').onclick = () => { try { curtidasLive(300); } catch (e) {} log('teste: +300 curtidas'); $m('jogar').click(); };
   $m('t3').onclick = () => { const n = nomeTeste(); try { novoEvento('comentario', n); } catch (e) {} log('teste: ' + n + ' comentou'); $m('jogar').click(); };
   $m('t4').onclick = () => { try { ligarSom($m('som').checked); testarVoz(); } catch (e) { log('erro na voz: ' + e.message); } log('teste: voz'); };
+
+  // ---------- vozes do Android ----------
+  window.VOZ_INDEX = +guarda.ler('voz', '-1');
+  const T = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.TextToSpeech;
+  async function carregarVozes(tent) {
+    if (!T) { $m('voz').innerHTML = '<option value="-1">Voz do navegador</option>'; return; }
+    let vs = [];
+    try { vs = (await T.getSupportedVoices()).voices || []; } catch (e) {}
+    const pt = vs.map((v, i) => Object.assign({}, v, { i })).filter(v => /^pt[-_]br/i.test(v.lang || ''));
+    if (!pt.length) { if (tent < 6) setTimeout(() => carregarVozes(tent + 1), 1500); return; }
+    pt.sort((a, b) => (a.localService ? 1 : 0) - (b.localService ? 1 : 0));
+    $m('voz').innerHTML = pt.map((v, k) => `<option value="${v.i}">${v.localService ? '📱' : '🌐'} Voz ${k + 1}${v.localService ? ' (sem internet)' : ' (mais natural)'}</option>`).join('');
+    if (!pt.some(v => v.i === window.VOZ_INDEX)) { window.VOZ_INDEX = pt[0].i; guarda.salvar('voz', String(window.VOZ_INDEX)); }
+    $m('voz').value = String(window.VOZ_INDEX);
+  }
+  $m('voz').onchange = () => { window.VOZ_INDEX = +$m('voz').value; guarda.salvar('voz', String(window.VOZ_INDEX)); };
+  $m('ouvir').onclick = () => { window.VOZ_INDEX = +$m('voz').value; guarda.salvar('voz', String(window.VOZ_INDEX)); try { testarVoz(); } catch (e) {} };
+  setTimeout(() => carregarVozes(0), 800);
 
   testaServidor().then(ok => { if (ok && limpaUsuario($m('usu').value)) conectar(); });
 })();

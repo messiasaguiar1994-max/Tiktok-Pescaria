@@ -153,12 +153,43 @@ function limparNome(n) {
   return s || 'amigo';
 }
 const TTSN = () => (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.TextToSpeech) || null;
+// ---------- BOCA sincronizada com a voz ----------
+// O Android avisa cada palavra no momento em que ela começa a ser falada; a boca abre e fecha
+// em cada sílaba dessa palavra, com formato de acordo com a vogal (a = aberta, o/u = redonda, e/i = esticada).
+const boca = { palavras: [], rate: 1 };
+function vogaisDe(w) { return (String(w).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[aeiouy]+/g) || ['a']).map(v => v[0]); }
+function bocaPalavra(word, t0) {
+  const w = String(word || '').replace(/[^\p{L}]/gu, ''); if (!w) return;
+  const dur = Math.max(.16, w.length * .072 / (boca.rate || 1));
+  boca.palavras.push({ t0: t0 === undefined ? S.t : t0, dur, vog: vogaisDe(w) });
+  if (boca.palavras.length > 40) boca.palavras.shift();
+}
+function estimarPalavras(txt, atraso) { // quando o aparelho não avisa as palavras: calcula o tempo de cada uma
+  let t = S.t + atraso;
+  for (const w of txt.split(/\s+/)) { const l = w.replace(/[^\p{L}]/gu, ''); if (!l) continue; bocaPalavra(l, t); t += Math.max(.16, l.length * .072 / (boca.rate || 1)) + .05; if (/[,!?.]$/.test(w)) t += .22; }
+}
+function bocaAgora() {
+  for (let k = boca.palavras.length - 1; k >= 0; k--) {
+    const p = boca.palavras[k], f = (S.t - p.t0) / p.dur;
+    if (f < 0 || f > 1) continue;
+    const n = p.vog.length, i = Math.min(n - 1, Math.floor(f * n)), fs = f * n - i, v = p.vog[i];
+    const amp = v === 'a' ? 1 : (v === 'o' || v === 'u') ? .8 : .55;
+    return { open: Math.sin(fs * Math.PI) * amp, round: (v === 'o' || v === 'u') ? 1 : 0 };
+  }
+  return { open: 0, round: 0 };
+}
+let rangeFunciona = false, ouvinteRange = false;
 function falar(txt, pitch, rate) {
   const n = TTSN();
+  boca.rate = rate || 1;
   if (n) { // voz nativa do Android (grátis)
+    if (!ouvinteRange) { ouvinteRange = true; try { n.addListener('onRangeStart', info => { rangeFunciona = true; bocaPalavra(info.spokenWord); }); } catch (e) { } }
     S.falando = true;
-    return Promise.race([n.speak({ text: txt, lang: 'pt-BR', rate: rate, pitch: pitch, volume: 1, category: 'playback' }).catch(() => { vozFalhou++; }), new Promise(r => setTimeout(r, 9000))])
-      .then(() => { S.falando = false; vozFuncionou = true; });
+    const fb = setTimeout(() => { if (!rangeFunciona) estimarPalavras(txt, 0); }, 250);
+    const op = { text: txt, lang: 'pt-BR', rate: rate, pitch: pitch, volume: 1, category: 'playback' };
+    if (window.VOZ_INDEX >= 0) op.voice = window.VOZ_INDEX;
+    return Promise.race([n.speak(op).catch(() => { vozFalhou++; }), new Promise(r => setTimeout(r, 9000))])
+      .then(() => { clearTimeout(fb); S.falando = false; vozFuncionou = true; });
   }
   return new Promise(res => {
     if (!synth) return setTimeout(res, 800);
@@ -167,6 +198,7 @@ function falar(txt, pitch, rate) {
     u.pitch = pitch; u.rate = rate; u.volume = 1;
     let ok = false, comecou = false; const fim = () => { if (!ok) { ok = true; S.falando = false; res(); } };
     u.onstart = () => { comecou = true; vozFuncionou = true; vozFalhou = 0; S.falando = true; };
+    u.onboundary = e => { if (e.name === 'word') { rangeFunciona = true; bocaPalavra(txt.slice(e.charIndex).split(/\s/)[0]); } };
     u.onend = fim; u.onerror = () => { vozFalhou++; fim(); };
     setTimeout(() => { if (!comecou) { vozFalhou++; S.falando = true; setTimeout(fim, 600); } }, 1600);
     setTimeout(fim, 6000);
@@ -352,11 +384,11 @@ async function cantar(ev) {
   const letra = ev.letra;
   if (ev.audio) { await tocarBuffer(ev.audio, letra.length); await wait(400); return; }
   // sem OpenAI: voz do aparelho, verso por verso, com melodia
-  const tons = [[1.15, 1.12, [79]], [1.05, 1.15, [76]], [1.15, 1.12, [81]], [1.2, 1.08, [84, 88]]];
+  const tons = [[1.05, 1.0, [79]], [1.0, 1.0, []], [1.0, 1.0, []], [1.05, .97, []]];
   const voz = temVozAparelho();
   for (let i = 0; i < letra.length; i++) {
     S.cur.linha = i; const [p, r, n] = tons[i % 4];
-    melodia(n, .12, .12);
+    if (n.length) melodia(n, .12, .1);
     if (voz) await falar(letra[i], p, r);
     else { S.falando = true; await wait(1700); S.falando = false; }
     await wait(60);
@@ -633,9 +665,11 @@ function pipo() {
   ctx.fillStyle = '#7a1838'; ctx.strokeStyle = '#7a1838'; ctx.lineWidth = 5; ctx.lineCap = 'round';
   if (pose === 'sing') {
     const nv = nivelVoz();
-    const ab = nv !== null ? 4 + nv * 18 : (S.falando ? 6 + Math.abs(Math.sin(t * 13)) * 12 : 5);
-    ctx.beginPath(); ctx.ellipse(0, 30, 13, ab, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = '#ff7aa0'; ctx.beginPath(); ctx.ellipse(0, 30 + ab * .45, 8, ab * .35, 0, 0, 7); ctx.fill();
+    let ab, lw = 13;
+    if (nv !== null) ab = 4 + nv * 18;
+    else { const b = bocaAgora(); ab = 3 + b.open * 17; lw = 15 - b.round * 6 + (1 - b.round) * b.open * 3; }
+    ctx.beginPath(); ctx.ellipse(0, 30, lw, ab, 0, 0, 7); ctx.fill();
+    if (ab > 7) { ctx.fillStyle = '#ff7aa0'; ctx.beginPath(); ctx.ellipse(0, 30 + ab * .45, lw * .6, ab * .35, 0, 0, 7); ctx.fill(); }
   } else if (pose === 'cheer' || pose === 'surprise') {
     ctx.beginPath(); ctx.arc(0, 22, 20, 0, Math.PI); ctx.closePath(); ctx.fill();
   } else {
@@ -833,7 +867,7 @@ window.novoEvento = function (tipo, nome, foto) {
   else if (tipo === 'comentario') chats.push({ nome: String(nome).slice(0, 22), x: rnd(30, 200), y: 900, vida: 0 });
 };
 window.curtidasLive = n => curtidas(n);
-window.testarVoz = () => falar('Oi! Eu sou o Pipo, o polvo poeta!', 1.1, 1.05);
+window.testarVoz = () => falar('Oi, Bia, que alegria! Eu sou o Pipo, o polvo poeta.', 1.05, 1.0);
 const chats = [];
 function desenharChats(dt) {
   for (const c of chats) {
