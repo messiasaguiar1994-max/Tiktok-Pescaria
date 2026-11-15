@@ -1,6 +1,6 @@
 # Monta o aplicativo do ZOMBIE RUSH (.APK) sozinho sempre que algo muda no galho "zumbi".
 # O APK pronto fica em "Releases", com o nome "Zombie Rush v1.N".
-name: Montar APK do Polvo
+name: Montar APK do Zombie Rush
 on:
   push:
     branches: [zumbi]
