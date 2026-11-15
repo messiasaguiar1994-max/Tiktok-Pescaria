@@ -263,7 +263,7 @@ const VERSOS = [
  'você é tão chique', 'que a alegria fique', 'que o amor se multiplique',
  'um mar todo azul',
 ];
-const MEIO = ['Sua rosa chegou como um abraço,', 'Obrigado pela rosa e pelo carinho,', 'Com essa rosa você me encantou,', 'Sua rosa deixou o mar mais bonito,'];
+const MEIO = ['Seu carinho chegou como um abraço,', 'Obrigado pelo presente e pelo carinho,', 'Com esse gesto você me encantou,', 'Você deixou o mar mais bonito,'];
 const VOG = 'aeiouáéíóúâêôãõà', ACENTO = /[áéíóúâêôãõ]/;
 const semAcento = t => t.replace(/[áàâ]/g, 'a').replace(/[éê]/g, 'e').replace(/í/g, 'i').replace(/[óô]/g, 'o').replace(/ú/g, 'u');
 function chaveRima(palavra) {
@@ -537,8 +537,8 @@ function placa() {
   ctx.strokeStyle = '#7a4f22'; ctx.lineWidth = 5; rrect(-104, -45, 208, 92, 16); ctx.stroke();
   ctx.fillStyle = '#fff'; ctx.strokeStyle = '#5a3613'; ctx.lineWidth = 5; ctx.textAlign = 'center';
   ctx.font = `bold 21px ${FONTE}`;
-  ctx.strokeText('FAÇO UM POEMA', 0, -6); ctx.fillText('FAÇO UM POEMA', 0, -6);
-  ctx.strokeText('PRA VOCÊ 🌹', 0, 26); ctx.fillText('PRA VOCÊ 🌹', 0, 26);
+  ctx.strokeText('PIPO, O', 0, -6); ctx.fillText('PIPO, O', 0, -6);
+  ctx.strokeText('POLVO POETA', 0, 26); ctx.fillText('POLVO POETA', 0, 26);
   ctx.restore();
 }
 function peixe(p, dt) {
@@ -663,7 +663,7 @@ function pipo() {
   ctx.fillStyle = 'rgba(255,90,140,.55)'; ctx.beginPath(); ctx.ellipse(-55, 18, 13, 8, 0, 0, 7); ctx.ellipse(55, 18, 13, 8, 0, 0, 7); ctx.fill();
   // boca
   ctx.fillStyle = '#7a1838'; ctx.strokeStyle = '#7a1838'; ctx.lineWidth = 5; ctx.lineCap = 'round';
-  if (pose === 'sing') {
+  if (pose === 'sing' || S.conversa) {
     const nv = nivelVoz();
     let ab, lw = 13;
     if (nv !== null) ab = 4 + nv * 18;
@@ -751,7 +751,7 @@ function faixa() {
   ctx.lineWidth = 6; ctx.strokeStyle = '#4a0e5c'; ctx.strokeText(c.nome, -105, -4);
   ctx.fillStyle = '#fff'; ctx.fillText(c.nome, -105, -4);
   ctx.font = `bold 19px ${FONTE}`; ctx.fillStyle = '#ffe9a8';
-  ctx.fillText(c.cantando ? '📜 Um poema pra você...' : 'Obrigado pela rosa! 🌹', -105, 32);
+  ctx.fillText(c.cantando ? '📜 Um poema pra você...' : 'Muito obrigado! 💝', -105, 32);
   ctx.restore();
   // fila
   if (S.fila.length) {
@@ -773,7 +773,7 @@ function karaoke() {
   ctx.fillStyle = '#ffe14d'; ctx.fillText('✨ ' + L[i], W / 2, y + 6);
   if (L[i + 1]) { ctx.font = `17px ${FONTE}`; ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText(L[i + 1], W / 2, y + 42); }
 }
-const textosLegenda = [['🌹', 'Mande uma rosa', 'e ganhe um poema!'], ['❤️', 'Curta a live', 'para encher a barra!'], ['📜', 'Rosa = um poema', 'com o seu nome!']];
+const textosLegenda = [['💬', 'Diga oi', 'pro Pipo no chat!'], ['❤️', 'Curta a live', 'para encher a barra!'], ['🌊', 'De onde você', 'está assistindo?']];
 const lugaresLegenda = [[150, 900], [400, 770], [400, 420], [130, 400], [270, 880]];
 let ultLugar = -1, ultTexto = -1;
 function legendas(dt) {
@@ -851,7 +851,7 @@ function quadro(agora) {
   particulas(dt);
   desenharChats(dt);
   legendas(dt);
-  barra(); faixa(); karaoke();
+  barra(); faixa(); karaoke(); conversaBalao(dt);
   requestAnimationFrame(quadro);
 }
 requestAnimationFrame(quadro);
@@ -864,10 +864,66 @@ window.ligarSom = function (on) {
 };
 window.novoEvento = function (tipo, nome, foto) {
   if (tipo === 'rosa') rosa(nome, foto);
-  else if (tipo === 'comentario') chats.push({ nome: String(nome).slice(0, 22), x: rnd(30, 200), y: 900, vida: 0 });
+  else if (tipo === 'comentario') { chats.push({ nome: String(nome).slice(0, 22), x: rnd(30, 200), y: 900, vida: 0 }); cumprimentar(nome); }
 };
 window.curtidasLive = n => curtidas(n);
 window.testarVoz = () => falar('Oi, Bia, que alegria! Eu sou o Pipo, o polvo poeta.', 1.05, 1.0);
+// =================== PIPO CONVERSANDO SOZINHO ===================
+// Fala de tempos em tempos e cumprimenta quem comenta. NUNCA pede presente
+// (pedir presente com frases repetidas é o que dá restrição no TikTok).
+const FALAS = [
+  'Oi, pessoal! Eu sou o Pipo, o polvo poeta.',
+  'Me conta nos comentários: de onde você está assistindo?',
+  'Sabia que o polvo tem três corações? Por isso eu sou tão carinhoso!',
+  'Eu tenho oito braços, e uso todos pra dar tchau pra vocês!',
+  'Qual é a sua comida favorita? Escreve aí pra mim!',
+  'Que mar lindo hoje, né? Olha esses peixinhos passando!',
+  'Você sabia que o polvo consegue mudar de cor?',
+  'Escreve seu nome no chat, que eu quero te conhecer!',
+  'Quem aí gosta de praia? Comenta aqui!',
+  'Olha a tartaruga! Ela passa aqui todo dia pra me visitar.',
+  'Tá todo mundo bem aí? Me conta como foi o seu dia!',
+  'Eu adoro quando o chat tá animado! Bora conversar!',
+];
+const CUMPRIMENTOS = ['Oi, {n}! Que bom te ver aqui!', 'Olha quem chegou: {n}! Seja bem-vindo!', 'E aí, {n}? Valeu por comentar!', '{n}, que alegria te ver no fundo do mar!', 'Oi, {n}! Fica à vontade, a casa é sua!'];
+S.conversa = null; S.proxFala = 25; let ultimaFala = -1, ultimoCumpr = -99;
+const jaCumprimentou = new Map();
+async function dizer(txt) {
+  if (S.cur || S.conversa) return;
+  S.conversa = { txt, t0: S.t };
+  try { await falar(txt, 1.0, 1.0); } catch (e) { }
+  await wait(600);
+  S.conversa = null;
+}
+function cumprimentar(bruto) {
+  if (S.cur || S.conversa || S.t - ultimoCumpr < 12) return;
+  const k = String(bruto); if (S.t - (jaCumprimentou.get(k) || -999) < 300) return; // mesma pessoa no máximo a cada 5 min
+  let n = nomeCanto(bruto); if (nomeEstranho(n)) n = 'pessoa linda';
+  jaCumprimentou.set(k, S.t); ultimoCumpr = S.t;
+  dizer(CUMPRIMENTOS[Math.floor(Math.random() * CUMPRIMENTOS.length)].replace('{n}', n));
+}
+function conversaBalao(dt) {
+  if (!S.cur && !S.conversa && S.fila.length === 0) {
+    S.proxFala -= dt;
+    if (S.proxFala <= 0) {
+      let i; do { i = Math.floor(Math.random() * FALAS.length); } while (i === ultimaFala && FALAS.length > 1);
+      ultimaFala = i; S.proxFala = rnd(40, 75); dizer(FALAS[i]);
+    }
+  }
+  if (!S.conversa) return;
+  const c = S.conversa, k = easeBack((S.t - c.t0) * 3);
+  ctx.save(); ctx.translate(W / 2, 395); ctx.scale(k, k);
+  ctx.font = `bold 19px ${FONTE}`; ctx.textAlign = 'center';
+  const pal = c.txt.split(' '), linhas = []; let l = '';
+  for (const w of pal) { const t = l ? l + ' ' + w : w; if (ctx.measureText(t).width > 380) { linhas.push(l); l = w; } else l = t; }
+  linhas.push(l);
+  const h = linhas.length * 26 + 22;
+  ctx.fillStyle = 'rgba(255,255,255,.95)'; rrect(-210, -h / 2, 420, h, 20); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-15, h / 2 - 1); ctx.lineTo(15, h / 2 - 1); ctx.lineTo(0, h / 2 + 18); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#7a1838';
+  linhas.forEach((ln, j) => ctx.fillText(ln, 0, -h / 2 + 30 + j * 26));
+  ctx.restore();
+}
 const chats = [];
 function desenharChats(dt) {
   for (const c of chats) {
