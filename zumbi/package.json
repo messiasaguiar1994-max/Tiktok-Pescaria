@@ -1,0 +1,12 @@
+{
+  "name": "zombie-rush-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aplicativo Android do jogo Zombie Rush",
+  "dependencies": {
+    "@capacitor-community/text-to-speech": "^6.1.0",
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
+  }
+}

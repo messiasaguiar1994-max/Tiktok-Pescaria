@@ -1,0 +1,6 @@
+{
+  "appId": "com.zumbi.aovivo",
+  "appName": "Zombie Rush",
+  "webDir": "www",
+  "android": { "allowMixedContent": true }
+}
