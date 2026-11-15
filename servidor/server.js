@@ -85,7 +85,7 @@ async function conectar(s) {
     for (const n of new Set([E.GIFT, 'gift'])) c.on(n, d => {
       const g = presente(d); if (g.tipo === 1 && !d.repeatEnd) return;
       const i = nivel(d), p = pessoa(d); if (!i || !p.id) return;
-      s.emit({ tipo: 'presente', ...p, nivel: i, qtd: Math.max(1, Math.min(d.repeatCount || 1, 10)) });
+      s.emit({ tipo: 'presente', ...p, nivel: i, qtd: Math.max(1, Math.min(d.repeatCount || 1, 10)), total: Math.max(1, d.repeatCount || 1) });
     });
     for (const n of new Set([E.LIKE, 'like'])) c.on(n, d => {
       const p = pessoa(d); if (!p.id) return;
