@@ -321,7 +321,8 @@ function letraGratis(bruto) {
 
 // ---------- VOZ HUMANA (OpenAI, opcional) ----------
 const CFG = { chave: '', voz: 'coral' };
-try { CFG.chave = localStorage.getItem('pipo_chave') || ''; CFG.voz = localStorage.getItem('pipo_voz') || 'coral'; } catch (e) { }
+// App 100% grátis: a OpenAI fica DESLIGADA de vez (nenhuma chave é lida nem usada).
+Object.defineProperty(CFG, 'chave', { value: '', writable: false });
 let statusOpenAI = CFG.chave ? 'chave salva (ainda não testada)' : 'desligada (sem chave)';
 const cacheVoz = new Map();
 async function comTempo(p, ms) { return Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('demorou')), ms))]); }
