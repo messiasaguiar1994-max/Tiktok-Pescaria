@@ -311,7 +311,7 @@ try{window.onQuadro&&onQuadro(dt,t)}catch(x){}
 rd.render(sc,cam)}
 loop();
 const SW=405,SH=720;
-function fit(){const k=Math.min(innerWidth/SW,innerHeight/SH);$('st').style.transform=`translate(-50%,-50%) scale(${k})`;rd.setPixelRatio(Math.min(devicePixelRatio*k,3));rd.setSize(SW,SH);cam.aspect=SW/SH;cam.fov=68;cam.updateProjectionMatrix()}
+function fit(){const k=Math.min(innerWidth/SW,innerHeight/SH);$('st').style.transform=`translate(-50%,-50%) scale(${k})`;const QL={leve:1.34,media:1.78,alta:2.67}[new URLSearchParams(location.search).get('qualidade')]||3;rd.setPixelRatio(Math.min(devicePixelRatio*k,QL));rd.setSize(SW,SH);cam.aspect=SW/SH;cam.fov=68;cam.updateProjectionMatrix()}
 addEventListener('resize',fit);fit();
 </script><script src="app.js"></script>
 <script src="apresentador.js"></script>
