@@ -219,5 +219,13 @@
     if (fs2.length) document.getElementById('mf').onchange({ target: { files: fs2, value: '' } });
   }).catch(e => { $m('carga').textContent = 'Não consegui carregar os modelos 3D'; console.error(e); });
 
-  testaServidor().then(ok => { if (ok && limpaUsuario($m('usu').value)) conectar(); });
+  // modo overlay (link no TikTok LIVE Studio): ?usuario=fulano  -> conecta e ja abre o jogo, sem precisar clicar
+  const QS = new URLSearchParams(location.search), usuURL = limpaUsuario(QS.get('usuario') || QS.get('u') || '');
+  if (usuURL) {
+    $m('usu').value = '@' + usuURL; guarda.salvar('usuario', usuURL);
+    m.classList.add('fora'); // esconde a tela inicial
+    const liga = () => { try { snd(); } catch (e) {} };
+    liga(); addEventListener('pointerdown', liga, { once: true });
+  }
+  testaServidor().then(ok => { if (limpaUsuario($m('usu').value) && (ok || usuURL)) conectar(); });
 })();
