@@ -186,7 +186,9 @@
     return new Promise(ok => {
       try {
         const u = new SpeechSynthesisUtterance(texto); u.lang = 'pt-BR'; u.rate = 1.3; u.pitch = 1.08;
-        const v = speechSynthesis.getVoices().find(x => /pt[-_]BR/i.test(x.lang)); if (v) u.voice = v;
+        const v = speechSynthesis.getVoices().find(x => /pt[-_]BR/i.test(x.lang)) || speechSynthesis.getVoices().find(x => /^pt/i.test(x.lang));
+        if (!v) { setTimeout(ok, 1500 + texto.length * 60); return; } // sem voz em portugues: nao fala em outra lingua
+        u.voice = v;
         u.onend = ok; u.onerror = ok; speechSynthesis.speak(u);
         setTimeout(ok, 1500 + texto.length * 90);
       } catch (e) { setTimeout(ok, 1500 + texto.length * 60); }
@@ -213,7 +215,7 @@
     ocupado = true; inicioFala = agora();
     let texto = '', audio = '';
     const srv = window.SERVIDOR, usu = (localStorage.getItem('pesc_usuario') || 'teste');
-    if (f.tipo === 'parado' && f.texto) { texto = f.texto; audio = await vozGuardada(texto, podeIA()) || ''; } // frase pronta: voz guardada
+    if (f.tipo === 'parado' && f.texto) { texto = f.texto; audio = await vozGuardada(texto, iaLigada()) || ''; } // frase pronta: voz guardada
     else if (srv && (f.teste || podeIA())) {
       try {
         const c = new AbortController(), tm = setTimeout(() => c.abort(), 12000);
@@ -224,8 +226,9 @@
         else if (j.erro === 'sem_chave' || j.erro === 'chave_invalida' || j.erro === 'sem_credito') { window.apresentadorIA = false; window.apresentadorAviso && apresentadorAviso(j.erro); }
       } catch (e) {}
     }
-    window.ultimaVoz = audio ? 'ia' : 'celular';
     if (!texto) texto = falaPronta(f);
+    if (!audio && iaLigada()) { const j = await pedeVoz(texto); if (j.audio) audio = j.audio; }
+    window.ultimaVoz = audio ? 'ia' : 'celular';
     abaixaMusica(true);
     txt.textContent = texto; balao.classList.add('on'); falando = true; closeBarco = true; nFalas++;
     if (acoes._fala) { acoes._fala.reset().fadeIn(.3).play(); }
@@ -284,6 +287,7 @@
     return { novas, total: todas.length };
   };
   // a IA (que gasta credito) so e usada com a chave ligada e a live conectada
+  const iaLigada = () => localStorage.getItem('pesc_ia') !== '0' && window.apresentadorIA !== false && !!window.SERVIDOR;
   const podeIA = () => localStorage.getItem('pesc_ia') !== '0' && !!window.LIVE_CONECTADA && window.apresentadorIA !== false && !!window.SERVIDOR;
 
 
